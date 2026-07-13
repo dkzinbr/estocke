@@ -1,36 +1,151 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Estocke
 
-## Getting Started
+Sistema de gestão de estoque (Next.js + Prisma + PostgreSQL).
 
-First, run the development server:
+## Pré-requisitos
+
+- Node.js 20+
+- pnpm
+
+## 1. Instalar dependências
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Isso também gera o Prisma Client (`postinstall`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 2. Subir um banco gratuito online
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Não é necessário instalar PostgreSQL na máquina. Use o **Prisma Postgres** gratuito:
 
-## Learn More
+```bash
+node scripts/create-online-db.mjs
+```
 
-To learn more about Next.js, take a look at the following resources:
+O script:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Cria um banco online (região `us-east-1`)
+2. Grava `DATABASE_URL` no `.env`
+3. Salva o link de claim em `.claim-url.txt`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Alternativa manual:
 
-## Deploy on Vercel
+```bash
+pnpm dlx create-db@latest --region us-east-1
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Copie a connection string para o `.env` como `DATABASE_URL`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Manter o banco (recomendado)
+
+Bancos criados assim **expiram em 24h**, a menos que você faça o claim:
+
+1. Abra a URL em `.claim-url.txt` (ou a claim URL do terminal)
+2. Entre na Prisma Data Platform
+3. Clique em **Claim database**
+
+Assim o banco fica gratuito e permanente.
+
+## 3. Configurar o `.env`
+
+Se o `.env` ainda não existir:
+
+```bash
+cp .env.example .env
+```
+
+Variáveis mínimas:
+
+```env
+DATABASE_URL="postgresql://...?sslmode=require"
+JWT_SECRET="um-segredo-forte"
+APP_URL="http://localhost:3000"
+```
+
+Opcionais (seed e e-mail de login):
+
+```env
+SEED_ADMIN_EMAIL="admin@estocke.local"
+SEED_ADMIN_PASSWORD="troque-esta-senha"
+SEED_ADMIN_NAME="Admin"
+
+# SMTP (em development, sem SMTP o link de verificação sai no console)
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM="Estocke <noreply@estoque.local>"
+```
+
+## 4. Rodar migrations e seed
+
+```bash
+pnpm exec prisma generate
+pnpm db:migrate
+pnpm db:seed
+```
+
+Ou em um comando:
+
+```bash
+pnpm db:setup
+```
+
+O seed cria o admin:
+
+- e-mail: `admin@estocke.local`
+- senha: `troque-esta-senha`
+
+(valores sobrescritos pelas envs `SEED_ADMIN_*`, se definidas)
+
+## 5. Subir o backend
+
+```bash
+pnpm dev
+```
+
+App em [http://localhost:3000](http://localhost:3000).
+
+### APIs principais
+
+| Método | Rota | Auth |
+|--------|------|------|
+| POST | `/api/auth/login` | pública |
+| POST | `/api/auth/verify` | pública (token do e-mail) |
+| * | `/api/products` | Bearer JWT |
+| * | `/api/employees` | Bearer JWT |
+| * | `/api/stockMovements` | Bearer JWT |
+
+### Fluxo de login
+
+1. `POST /api/auth/login` com `{ "email", "password" }`
+2. Confirme o acesso pelo link do e-mail (ou `previewUrl` / console em dev)
+3. Em `/auth/verify`, clique em **Confirm access**
+4. Use o JWT retornado em `Authorization: Bearer <token>` (válido por **3h**)
+
+Exemplo:
+
+```bash
+curl -X POST http://localhost:3000/api/auth/login ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"admin@estocke.local\",\"password\":\"troque-esta-senha\"}"
+```
+
+## Scripts úteis
+
+| Script | Descrição |
+|--------|-----------|
+| `pnpm dev` | Backend em desenvolvimento |
+| `pnpm build` | Gera Prisma Client + build |
+| `pnpm db:generate` | Gera Prisma Client |
+| `pnpm db:migrate` | Aplica migrations |
+| `pnpm db:seed` | Cria/atualiza admin |
+| `pnpm db:setup` | migrate + seed |
+
+## Stack
+
+- Next.js 16 (App Router)
+- Prisma 7 + PostgreSQL
+- JWT + verificação por e-mail no login
+- Zod, bcrypt, nodemailer

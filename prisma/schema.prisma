@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+model Product {
+  id             String          @id @default(cuid())
+  name           String
+  code           String          @unique
+  description    String?
+  quantity       Int             @default(0)
+  minStock       Int             @default(0)
+  price          Decimal         @default(0) @db.Decimal(10, 2)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  stockMovements StockMovement[]
+
+  @@index([name])
+  @@index([active])
+}
+
+model Employee {
+  id             String          @id @default(cuid())
+  name           String
+  email          String          @unique
+  phone          String?
+  jobTitle       String?
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  stockMovements StockMovement[]
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  name               String
+  email              String              @unique
+  passwordHash       String
+  role               Role                @default(EMPLOYEE)
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  loginVerifications LoginVerification[]
+}
+
+model LoginVerification {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model StockMovement {
+  id         String       @id @default(cuid())
+  productId  String
+  employeeId String?
+  type       MovementType
+  quantity   Int
+  note       String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  product    Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  employee   Employee?    @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([employeeId])
+  @@index([type])
+  @@index([createdAt])
+}
