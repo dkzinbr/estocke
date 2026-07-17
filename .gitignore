@@ -22,6 +22,7 @@
 
 # prisma generated client
 /src/generated
+/generated/prisma
 
 # misc
 .DS_Store
@@ -40,6 +41,10 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# employee photo uploads
+/public/fotos-funcionarios/*
+!/public/fotos-funcionarios/.gitkeep
 
 # typescript
 *.tsbuildinfo

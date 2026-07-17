@@ -1,6 +1,5 @@
 import { ApiError, handleApiError, json } from "@/lib/api";
-import { createLoginVerification } from "@/lib/auth";
-import { sendLoginVerificationEmail } from "@/lib/email";
+import { signAuthToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import { z } from "zod";
@@ -16,29 +15,40 @@ export async function POST(request: Request) {
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user || !user.active) {
-      throw new ApiError("Invalid credentials.", 401);
+      throw new ApiError("Credenciais inválidas.", 401);
     }
 
     const passwordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordValid) {
-      throw new ApiError("Invalid credentials.", 401);
+      throw new ApiError("Credenciais inválidas.", 401);
     }
 
-    const { token } = await createLoginVerification(user.id);
-    const emailResult = await sendLoginVerificationEmail({
-      to: user.email,
-      name: user.name,
-      token,
+    await prisma.employee.upsert({
+      where: { email: user.email },
+      update: { name: user.name, active: true },
+      create: {
+        name: user.name,
+        email: user.email,
+        active: true,
+      },
+    });
+
+    const token = signAuthToken({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
     });
 
     return json({
-      requiresEmailVerification: true,
-      message:
-        "We sent an email with a button to confirm your access. The link expires in 15 minutes.",
-      ...(emailResult.previewOnly
-        ? { previewUrl: emailResult.verifyUrl }
-        : {}),
+      token,
+      expiresIn: "3h",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (err) {
     return handleApiError(err);

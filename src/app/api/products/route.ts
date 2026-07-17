@@ -1,6 +1,17 @@
 import { handleApiError, json, parseBoolean } from "@/lib/api";
+import { actorFromUser, logActivity } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
+import {
+  productAssignmentInclude,
+  withAssignedQuantity,
+} from "@/lib/product-assignments";
+import {
+  productOpenMalfunctionInclude,
+  productOpenRequestInclude,
+  withProductDemandFlags,
+} from "@/lib/product-request-rules";
 import { prisma } from "@/lib/prisma";
+import { Role } from "@generated/prisma/client";
 import { z } from "zod";
 
 const createProductSchema = z.object({
@@ -9,7 +20,6 @@ const createProductSchema = z.object({
   description: z.string().trim().optional().nullable(),
   quantity: z.number().int().min(0).default(0),
   minStock: z.number().int().min(0).default(0),
-  price: z.coerce.number().min(0).default(0),
   active: z.boolean().default(true),
 });
 
@@ -30,10 +40,19 @@ export async function GET(request: Request) {
             ]
           : undefined,
       },
+      include: {
+        ...productAssignmentInclude,
+        ...productOpenMalfunctionInclude,
+        ...productOpenRequestInclude,
+      },
       orderBy: { name: "asc" },
     });
 
-    return json(products);
+    return json(
+      products.map((product) =>
+        withAssignedQuantity(withProductDemandFlags(product)),
+      ),
+    );
   } catch (err) {
     return handleApiError(err);
   }
@@ -41,11 +60,28 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireAuth(request);
+    const user = await requireAuth(request, { roles: [Role.ADMIN] });
     const data = createProductSchema.parse(await request.json());
-    const product = await prisma.product.create({ data });
+    const product = await prisma.product.create({
+      data,
+      include: {
+        ...productAssignmentInclude,
+        ...productOpenMalfunctionInclude,
+        ...productOpenRequestInclude,
+      },
+    });
 
-    return json(product, { status: 201 });
+    await logActivity(prisma, {
+      type: "PRODUCT_CREATED",
+      summary: `Produto criado: ${product.name} (${product.code})`,
+      actor: actorFromUser(user),
+      entityType: "product",
+      entityId: product.id,
+    });
+
+    return json(withAssignedQuantity(withProductDemandFlags(product)), {
+      status: 201,
+    });
   } catch (err) {
     return handleApiError(err);
   }

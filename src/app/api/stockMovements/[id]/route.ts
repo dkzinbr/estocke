@@ -1,8 +1,10 @@
 import { ApiError, error, handleApiError, json } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
+import { employeeMovementInclude } from "@/lib/employee-select";
 import { prisma } from "@/lib/prisma";
 import type { IdRouteContext } from "@/lib/route";
 import { assertValidMovement, movementDelta } from "@/lib/stock";
+import { Role } from "@generated/prisma/client";
 import { z } from "zod";
 
 const movementTypeSchema = z.enum(["IN", "OUT", "ADJUSTMENT"]);
@@ -21,10 +23,7 @@ export async function GET(request: Request, ctx: IdRouteContext) {
     const { id } = await ctx.params;
     const stockMovement = await prisma.stockMovement.findUnique({
       where: { id },
-      include: {
-        product: true,
-        employee: true,
-      },
+      include: employeeMovementInclude,
     });
 
     if (!stockMovement) return error("Stock movement not found.", 404);
@@ -37,7 +36,7 @@ export async function GET(request: Request, ctx: IdRouteContext) {
 
 export async function PATCH(request: Request, ctx: IdRouteContext) {
   try {
-    await requireAuth(request);
+    await requireAuth(request, { roles: [Role.ADMIN] });
     const { id } = await ctx.params;
     const data = updateStockMovementSchema.parse(await request.json());
 
@@ -97,7 +96,17 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
         data,
         include: {
           product: true,
-          employee: true,
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              photoUrl: true,
+              department: {
+                select: { id: true, name: true },
+              },
+            },
+          },
         },
       });
     });
@@ -110,7 +119,7 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
 
 export async function DELETE(request: Request, ctx: IdRouteContext) {
   try {
-    await requireAuth(request);
+    await requireAuth(request, { roles: [Role.ADMIN] });
     const { id } = await ctx.params;
 
     await prisma.$transaction(async (tx) => {

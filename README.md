@@ -112,17 +112,15 @@ App em [http://localhost:3000](http://localhost:3000).
 | Método | Rota | Auth |
 |--------|------|------|
 | POST | `/api/auth/login` | pública |
-| POST | `/api/auth/verify` | pública (token do e-mail) |
 | * | `/api/products` | Bearer JWT |
 | * | `/api/employees` | Bearer JWT |
 | * | `/api/stockMovements` | Bearer JWT |
 
 ### Fluxo de login
 
-1. `POST /api/auth/login` com `{ "email", "password" }`
-2. Confirme o acesso pelo link do e-mail (ou `previewUrl` / console em dev)
-3. Em `/auth/verify`, clique em **Confirm access**
-4. Use o JWT retornado em `Authorization: Bearer <token>` (válido por **3h**)
+1. Em `/login`, informe e-mail e senha
+2. A API `POST /api/auth/login` valida as credenciais e retorna o JWT
+3. Use o JWT em `Authorization: Bearer <token>` (válido por **3h**)
 
 Exemplo:
 
@@ -147,5 +145,5 @@ curl -X POST http://localhost:3000/api/auth/login ^
 
 - Next.js 16 (App Router)
 - Prisma 7 + PostgreSQL
-- JWT + verificação por e-mail no login
-- Zod, bcrypt, nodemailer
+- JWT no login (e-mail + senha)
+- Zod, bcrypt

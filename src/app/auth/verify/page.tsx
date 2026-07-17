@@ -1,5 +1,6 @@
 "use client";
 
+import { setSession } from "@/lib/client/session";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 
@@ -42,11 +43,10 @@ function VerifyAccessForm() {
         return;
       }
 
-      window.localStorage.setItem("estocke_token", data.token);
-      window.localStorage.setItem("estocke_user", JSON.stringify(data.user));
+      setSession({ token: data.token, user: data.user });
       setStatus("ok");
       setMessage("Access confirmed. Redirecting...");
-      router.replace("/");
+      router.replace("/dashboard");
     } catch {
       setStatus("error");
       setMessage("Connection failed while confirming access.");
@@ -54,21 +54,21 @@ function VerifyAccessForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <form
         onSubmit={handleConfirm}
-        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-md rounded-2xl border border-adc-border bg-white p-8 shadow-sm"
       >
-        <p className="text-sm font-medium tracking-wide text-teal-700">Estocke</p>
-        <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
+        <p className="text-sm font-medium tracking-wide text-adc-blue">Estocke</p>
+        <h1 className="mt-2 text-2xl font-semibold text-adc-navy">
           Confirm access
         </h1>
-        <p className="mt-3 text-sm leading-6 text-zinc-600">{message}</p>
+        <p className="mt-3 text-sm leading-6 text-adc-muted">{message}</p>
 
         <button
           type="submit"
           disabled={!token || status === "loading" || status === "ok"}
-          className="mt-8 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-8 w-full rounded-xl bg-adc-blue px-4 py-3 text-sm font-semibold text-white transition hover:bg-adc-brand disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "loading" ? "Confirming..." : "Confirm access"}
         </button>
@@ -81,8 +81,8 @@ export default function VerifyAccessPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
-          <p className="text-sm text-zinc-600">Loading verification...</p>
+        <main className="flex min-h-screen items-center justify-center bg-background px-4">
+          <p className="text-sm text-adc-muted">Loading verification...</p>
         </main>
       }
     >

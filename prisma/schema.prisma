@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -15,36 +15,137 @@ enum MovementType {
 
 enum Role {
   ADMIN
+  SUPERVISOR
   EMPLOYEE
 }
 
+enum RequestStatus {
+  OPEN
+  FULFILLED
+  CANCELLED
+}
+
+enum ActivityType {
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+  PRODUCT_DELETED
+  EMPLOYEE_CREATED
+  EMPLOYEE_UPDATED
+  EMPLOYEE_DELETED
+  DEPARTMENT_CREATED
+  DEPARTMENT_UPDATED
+  DEPARTMENT_DELETED
+  REQUEST_CREATED
+  REQUEST_FULFILLED
+  REQUEST_CANCELLED
+  MALFUNCTION_REPORTED
+  MALFUNCTION_RESOLVED
+  ASSIGNMENT_ACQUIRED
+  MALFUNCTION_MOVEMENT
+  USER_UPDATED
+  USER_REGISTERED
+  STOCK_ADJUSTED
+}
+
 model Product {
-  id             String          @id @default(cuid())
+  id             String               @id @default(cuid())
   name           String
-  code           String          @unique
+  code           String               @unique
   description    String?
-  quantity       Int             @default(0)
-  minStock       Int             @default(0)
-  price          Decimal         @default(0) @db.Decimal(10, 2)
-  active         Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  quantity       Int                  @default(0)
+  minStock       Int                  @default(0)
+  active         Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
   stockMovements StockMovement[]
+  assignments    ProductAssignment[]
+  malfunctions   ProductMalfunction[]
+  requests       ProductRequest[]
 
   @@index([name])
   @@index([active])
 }
 
+model Department {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  users     User[]
+  employees Employee[]
+
+  @@index([active])
+  @@index([name])
+}
+
 model Employee {
-  id             String          @id @default(cuid())
+  id             String               @id @default(cuid())
   name           String
-  email          String          @unique
+  email          String               @unique
   phone          String?
-  jobTitle       String?
-  active         Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  photoUrl       String?
+  departmentId   String?
+  active         Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  department     Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   stockMovements StockMovement[]
+  assignments    ProductAssignment[]
+  requests       ProductRequest[]
+  malfunctions   ProductMalfunction[]
+
+  @@index([departmentId])
+}
+
+model ProductAssignment {
+  id         String   @id @default(cuid())
+  productId  String
+  employeeId String
+  quantity   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, employeeId])
+  @@index([productId])
+  @@index([employeeId])
+}
+
+model ProductMalfunction {
+  id                   String    @id @default(cuid())
+  productId            String
+  description          String
+  active               Boolean   @default(true)
+  reportedByEmployeeId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  resolvedAt           DateTime?
+  product              Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reportedBy           Employee? @relation(fields: [reportedByEmployeeId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([active])
+  @@index([createdAt])
+  @@index([reportedByEmployeeId])
+}
+
+model ProductRequest {
+  id         String        @id @default(cuid())
+  productId  String
+  employeeId String
+  status     RequestStatus @default(OPEN)
+  note       String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model User {
@@ -53,10 +154,14 @@ model User {
   email              String              @unique
   passwordHash       String
   role               Role                @default(EMPLOYEE)
+  departmentId       String?
   active             Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  department         Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   loginVerifications LoginVerification[]
+
+  @@index([departmentId])
 }
 
 model LoginVerification {
@@ -88,4 +193,21 @@ model StockMovement {
   @@index([employeeId])
   @@index([type])
   @@index([createdAt])
+}
+
+model ActivityEvent {
+  id          String       @id @default(cuid())
+  type        ActivityType
+  summary     String
+  detail      String?
+  actorUserId String?
+  actorName   String?
+  entityType  String?
+  entityId    String?
+  createdAt   DateTime     @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+  @@index([actorUserId])
+  @@index([entityType, entityId])
 }

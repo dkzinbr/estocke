@@ -1,7 +1,9 @@
 import { ApiError, handleApiError, json } from "@/lib/api";
+import { actorFromUser, logActivity } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertValidMovement, movementDelta } from "@/lib/stock";
+import { Role } from "@generated/prisma/client";
 import { z } from "zod";
 
 const movementTypeSchema = z.enum(["IN", "OUT", "ADJUSTMENT"]);
@@ -34,7 +36,17 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
       include: {
         product: true,
-        employee: true,
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            photoUrl: true,
+            department: {
+              select: { id: true, name: true },
+            },
+          },
+        },
       },
     });
 
@@ -46,7 +58,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireAuth(request);
+    const user = await requireAuth(request, { roles: [Role.ADMIN] });
     const data = createStockMovementSchema.parse(await request.json());
     assertValidMovement(data.type, data.quantity);
 
@@ -66,13 +78,41 @@ export async function POST(request: Request) {
         data: { quantity: nextQuantity },
       });
 
-      return tx.stockMovement.create({
+      const movement = await tx.stockMovement.create({
         data,
         include: {
           product: true,
-          employee: true,
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              photoUrl: true,
+              department: {
+                select: { id: true, name: true },
+              },
+            },
+          },
         },
       });
+
+      const typeLabel =
+        data.type === "IN"
+          ? "entrada"
+          : data.type === "OUT"
+            ? "saída"
+            : "ajuste";
+
+      await logActivity(tx, {
+        type: "STOCK_ADJUSTED",
+        summary: `Ajuste de estoque: ${product.name} (${typeLabel} ${Math.abs(data.quantity)})`,
+        detail: data.note || null,
+        actor: actorFromUser(user),
+        entityType: "product",
+        entityId: product.id,
+      });
+
+      return movement;
     });
 
     return json(stockMovement, { status: 201 });

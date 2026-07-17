@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@/generated/prisma/client";
+import { Role } from "@generated/prisma/client";
 import jwt from "jsonwebtoken";
 
 export type TokenPayload = {
@@ -52,7 +52,11 @@ export function verifyAuthToken(token: string): TokenPayload {
       throw new ApiError("Invalid token.", 401);
     }
 
-    if (decoded.role !== Role.ADMIN && decoded.role !== Role.EMPLOYEE) {
+    if (
+      decoded.role !== Role.ADMIN &&
+      decoded.role !== Role.SUPERVISOR &&
+      decoded.role !== Role.EMPLOYEE
+    ) {
       throw new ApiError("Invalid token.", 401);
     }
 
