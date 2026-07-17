@@ -3,6 +3,69 @@ import { PrismaClient, Role } from "../generated/prisma/client.js";
 import bcrypt from "bcrypt";
 import "dotenv/config";
 
+async function upsertDepartment(
+  prisma: PrismaClient,
+  name: string,
+) {
+  return prisma.department.upsert({
+    where: { name },
+    update: { active: true },
+    create: { name, active: true },
+  });
+}
+
+async function upsertUserWithEmployee(
+  prisma: PrismaClient,
+  params: {
+    email: string;
+    name: string;
+    password: string;
+    role: Role;
+    departmentId: string;
+    phone?: string;
+  },
+) {
+  const passwordHash = await bcrypt.hash(params.password, 10);
+
+  const user = await prisma.user.upsert({
+    where: { email: params.email },
+    update: {
+      name: params.name,
+      passwordHash,
+      role: params.role,
+      departmentId: params.departmentId,
+      active: true,
+    },
+    create: {
+      email: params.email,
+      name: params.name,
+      passwordHash,
+      role: params.role,
+      departmentId: params.departmentId,
+      active: true,
+    },
+  });
+
+  const employee = await prisma.employee.upsert({
+    where: { email: params.email },
+    update: {
+      name: params.name,
+      phone: params.phone ?? null,
+      departmentId: params.departmentId,
+      active: true,
+    },
+    create: {
+      name: params.name,
+      email: params.email,
+      phone: params.phone ?? null,
+      departmentId: params.departmentId,
+      active: true,
+    },
+  });
+
+  return { user, employee };
+}
+
 async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -12,92 +75,55 @@ async function main() {
   const adapter = new PrismaPg({ connectionString });
   const prisma = new PrismaClient({ adapter });
 
-  const email = process.env.SEED_ADMIN_EMAIL ?? "admin@estocke.local";
-  const password = process.env.SEED_ADMIN_PASSWORD ?? "troque-esta-senha";
-  const name = process.env.SEED_ADMIN_NAME ?? "Admin";
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@estocke.local";
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "troque-esta-senha";
+  const adminName = process.env.SEED_ADMIN_NAME ?? "Admin Estocke";
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const general = await upsertDepartment(prisma, "Geral");
+  const ti = await upsertDepartment(prisma, "TI");
+  const rh = await upsertDepartment(prisma, "RH");
 
-  const general = await prisma.department.upsert({
-    where: { name: "Geral" },
-    update: { active: true },
-    create: { name: "Geral", active: true },
-  });
-
-  const admin = await prisma.user.upsert({
-    where: { email },
-    update: {
-      name,
-      passwordHash,
+  const { user: admin, employee: adminEmployee } = await upsertUserWithEmployee(
+    prisma,
+    {
+      email: adminEmail,
+      name: adminName,
+      password: adminPassword,
       role: Role.ADMIN,
       departmentId: general.id,
-      active: true,
     },
-    create: {
-      email,
-      name,
-      passwordHash,
-      role: Role.ADMIN,
-      departmentId: general.id,
-      active: true,
-    },
+  );
+
+  const { user: supervisor, employee: supervisorEmployee } =
+    await upsertUserWithEmployee(prisma, {
+      email: "supervisor@estocke.local",
+      name: "Carla Supervisão",
+      password: "troque-esta-senha",
+      role: Role.SUPERVISOR,
+      departmentId: ti.id,
+      phone: "11999990010",
+    });
+
+  const { user: anaUser, employee: ana } = await upsertUserWithEmployee(prisma, {
+    email: "ana.silva@estocke.local",
+    name: "Ana Silva",
+    password: "troque-esta-senha",
+    role: Role.EMPLOYEE,
+    departmentId: ti.id,
+    phone: "11999990001",
   });
 
-  await prisma.employee.upsert({
-    where: { email },
-    update: {
-      name,
-      departmentId: general.id,
-      active: true,
+  const { user: brunoUser, employee: bruno } = await upsertUserWithEmployee(
+    prisma,
+    {
+      email: "bruno.costa@estocke.local",
+      name: "Bruno Costa",
+      password: "troque-esta-senha",
+      role: Role.EMPLOYEE,
+      departmentId: rh.id,
+      phone: "11999990002",
     },
-    create: {
-      name,
-      email,
-      departmentId: general.id,
-      active: true,
-    },
-  });
-
-  const employees = await Promise.all([
-    prisma.employee.upsert({
-      where: { email: "ana.silva@estocke.local" },
-      update: {
-        name: "Ana Silva",
-        phone: "11999990001",
-        photoUrl: null,
-        departmentId: general.id,
-        active: true,
-      },
-      create: {
-        name: "Ana Silva",
-        email: "ana.silva@estocke.local",
-        phone: "11999990001",
-        photoUrl: null,
-        departmentId: general.id,
-        active: true,
-      },
-    }),
-    prisma.employee.upsert({
-      where: { email: "bruno.costa@estocke.local" },
-      update: {
-        name: "Bruno Costa",
-        phone: "11999990002",
-        photoUrl: null,
-        departmentId: general.id,
-        active: true,
-      },
-      create: {
-        name: "Bruno Costa",
-        email: "bruno.costa@estocke.local",
-        phone: "11999990002",
-        photoUrl: null,
-        departmentId: general.id,
-        active: true,
-      },
-    }),
-  ]);
-
-  const [ana, bruno] = employees;
+  );
 
   const products = await Promise.all([
     prisma.product.upsert({
@@ -154,9 +180,27 @@ async function main() {
         active: true,
       },
     }),
+    prisma.product.upsert({
+      where: { code: "SKU-NOTEBOOK" },
+      update: {
+        name: "Notebook corporativo",
+        description: "Equipamento único de patrimônio",
+        quantity: 1,
+        minStock: 1,
+        active: true,
+      },
+      create: {
+        name: "Notebook corporativo",
+        code: "SKU-NOTEBOOK",
+        description: "Equipamento único de patrimônio",
+        quantity: 1,
+        minStock: 1,
+        active: true,
+      },
+    }),
   ]);
 
-  const [cabo, mouse, teclado] = products;
+  const [cabo, mouse, teclado, notebook] = products;
 
   await prisma.productAssignment.deleteMany({
     where: {
@@ -170,12 +214,20 @@ async function main() {
       { productId: mouse.id, employeeId: ana.id, quantity: 1 },
       { productId: teclado.id, employeeId: bruno.id, quantity: 1 },
       { productId: cabo.id, employeeId: bruno.id, quantity: 1 },
+      { productId: notebook.id, employeeId: supervisorEmployee.id, quantity: 1 },
     ],
   });
 
-  console.log(`Seeded admin user: ${admin.email}`);
-  console.log(`Seeded employees: ${employees.map((e) => e.email).join(", ")}`);
-  console.log(`Seeded products: ${products.map((p) => p.code).join(", ")}`);
+  console.log("Seed OK — contas para QA:");
+  console.log(`  ADMIN       ${admin.email} / ${adminPassword}`);
+  console.log(`  SUPERVISOR  ${supervisor.email} / troque-esta-senha`);
+  console.log(`  EMPLOYEE    ${anaUser.email} / troque-esta-senha`);
+  console.log(`  EMPLOYEE    ${brunoUser.email} / troque-esta-senha`);
+  console.log(
+    `Departamentos: Geral, TI, RH | Produtos: ${products.map((p) => p.code).join(", ")}`,
+  );
+  console.log(`Admin employee id: ${adminEmployee.id}`);
+
   await prisma.$disconnect();
 }
 

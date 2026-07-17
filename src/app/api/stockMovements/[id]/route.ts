@@ -26,7 +26,7 @@ export async function GET(request: Request, ctx: IdRouteContext) {
       include: employeeMovementInclude,
     });
 
-    if (!stockMovement) return error("Stock movement not found.", 404);
+    if (!stockMovement) return error("Movimento de estoque não encontrado.", 404);
 
     return json(stockMovement);
   } catch (err) {
@@ -60,7 +60,7 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
         const nextQuantity = product.quantity - currentDelta + nextDelta;
 
         if (nextQuantity < 0) {
-          throw new ApiError("Insufficient stock for this movement.", 409);
+          throw new ApiError("Estoque insuficiente para este movimento.", 409);
         }
 
         await tx.product.update({
@@ -78,7 +78,7 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
         const appliedQuantity = nextProduct.quantity + nextDelta;
 
         if (revertedQuantity < 0 || appliedQuantity < 0) {
-          throw new ApiError("Insufficient stock for this movement.", 409);
+          throw new ApiError("Estoque insuficiente para este movimento.", 409);
         }
 
         await tx.product.update({

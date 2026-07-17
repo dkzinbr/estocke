@@ -2,11 +2,11 @@ import { handleApiError, json } from "@/lib/api";
 import { ACTIVITY_TYPE_LABELS } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ActivityType } from "@generated/prisma/client";
+import { ActivityType, Role } from "@generated/prisma/client";
 
 export async function GET(request: Request) {
   try {
-    await requireAuth(request);
+    await requireAuth(request, { roles: [Role.ADMIN, Role.SUPERVISOR] });
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search")?.trim();
     const typeParam = searchParams.get("type")?.trim();

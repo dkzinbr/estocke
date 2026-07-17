@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Legacy seed URLs; new photos are served from /fotos-funcionarios
+    // Legacy remote avatars (if any remaining in DB)
     remotePatterns: [
       {
         protocol: "https",

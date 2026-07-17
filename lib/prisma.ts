@@ -6,20 +6,12 @@ import "dotenv/config";
  * Bump this whenever the Prisma schema changes so Next/Turbopack
  * discards a stale global PrismaClient that still expects old columns.
  */
-const PRISMA_SCHEMA_VERSION = "2026-07-17-activity-events";
+const PRISMA_SCHEMA_VERSION = "2026-07-17-drop-login-verification";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
   prismaSchemaVersion?: string;
 };
-
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL is not configured.");
-}
-
-const adapter = new PrismaPg({ connectionString });
 
 const REQUIRED_DELEGATES = [
   "product",
@@ -39,6 +31,11 @@ function hasRequiredDelegates(client: PrismaClient) {
 }
 
 function createPrismaClient() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is not configured.");
+  }
+  const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
 

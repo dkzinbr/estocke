@@ -25,25 +25,25 @@ export function handleApiError(err: unknown) {
   }
 
   if (err instanceof ZodError) {
-    return error("Invalid data.", 422, err.flatten());
+    return error("Dados inválidos.", 422, err.flatten());
   }
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === "P2002") {
-      return error("Duplicate record.", 409, err.meta);
+      return error("Registro duplicado.", 409, err.meta);
     }
 
     if (err.code === "P2025") {
-      return error("Record not found.", 404);
+      return error("Registro não encontrado.", 404);
     }
 
     if (err.code === "P2003") {
-      return error("Related record blocks this operation.", 409, err.meta);
+      return error("Registro relacionado impede esta operação.", 409, err.meta);
     }
   }
 
   console.error(err);
-  return error("Internal server error.", 500);
+  return error("Erro interno do servidor.", 500);
 }
 
 export function parseBoolean(value: string | null) {

@@ -15,6 +15,7 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   REQUEST_CANCELLED: "Pedido cancelado",
   MALFUNCTION_REPORTED: "Mal funcionamento",
   MALFUNCTION_RESOLVED: "Mal funcionamento resolvido",
+  MALFUNCTION_DELETED: "Mal funcionamento excluído",
   ASSIGNMENT_ACQUIRED: "Aquisição / transferência",
   MALFUNCTION_MOVEMENT: "Saída por mal funcionamento",
   USER_UPDATED: "Usuário atualizado",

@@ -10,11 +10,14 @@ export function movementDelta(type: MovementType, quantity: number) {
 
 export function assertValidMovement(type: MovementType, quantity: number) {
   if (!Number.isInteger(quantity) || quantity === 0) {
-    throw new ApiError("Quantity must be a non-zero integer.", 422);
+    throw new ApiError("A quantidade deve ser um inteiro diferente de zero.", 422);
   }
 
   if ((type === "IN" || type === "OUT") && quantity < 1) {
-    throw new ApiError("IN and OUT movements require a positive quantity.", 422);
+    throw new ApiError(
+      "Movimentos de entrada e saída exigem quantidade positiva.",
+      422,
+    );
   }
 }
 

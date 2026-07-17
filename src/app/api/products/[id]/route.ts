@@ -36,7 +36,7 @@ export async function GET(request: Request, ctx: IdRouteContext) {
       },
     });
 
-    if (!product) return error("Product not found.", 404);
+    if (!product) return error("Produto não encontrado.", 404);
 
     return json(withAssignedQuantity(product));
   } catch (err) {
@@ -86,7 +86,7 @@ export async function DELETE(request: Request, ctx: IdRouteContext) {
       where: { id },
       select: { id: true, name: true, code: true },
     });
-    if (!product) return error("Product not found.", 404);
+    if (!product) return error("Produto não encontrado.", 404);
 
     await prisma.product.delete({ where: { id } });
 

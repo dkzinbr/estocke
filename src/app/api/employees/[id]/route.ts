@@ -49,7 +49,7 @@ export async function GET(request: Request, ctx: IdRouteContext) {
       },
     });
 
-    if (!employee) return error("Employee not found.", 404);
+    if (!employee) return error("Funcionário não encontrado.", 404);
 
     return json(employee);
   } catch (err) {
@@ -78,7 +78,7 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
       where: { id },
       select: { photoUrl: true },
     });
-    if (!existing) return error("Employee not found.", 404);
+    if (!existing) return error("Funcionário não encontrado.", 404);
 
     const nextPhotoUrl =
       photoUrl === undefined ? undefined : photoUrl || null;
@@ -137,7 +137,7 @@ export async function DELETE(request: Request, ctx: IdRouteContext) {
       where: { id },
       select: { id: true, name: true, photoUrl: true },
     });
-    if (!employee) return error("Employee not found.", 404);
+    if (!employee) return error("Funcionário não encontrado.", 404);
 
     await prisma.employee.delete({ where: { id } });
     await deleteEmployeePhoto(employee.photoUrl);

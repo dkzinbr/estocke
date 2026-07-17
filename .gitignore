@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -19,6 +17,7 @@
 
 # production
 /build
+/dist
 
 # prisma generated client
 /src/generated
@@ -26,26 +25,43 @@
 
 # misc
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.pem
+*.log
+*.local
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.eslintcache
 
-# env files (can opt-in for committing if needed)
+# env & secrets
 .env*
 !.env.example
 .claim-url.txt
 
-# vercel
+# vercel / deploy
 .vercel
+
+# turbo / caches
+.turbo
+.cache
 
 # employee photo uploads
 /public/fotos-funcionarios/*
 !/public/fotos-funcionarios/.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ide
+.idea/
+*.swp
+*.swo
+*~

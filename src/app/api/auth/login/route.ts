@@ -26,11 +26,16 @@ export async function POST(request: Request) {
 
     await prisma.employee.upsert({
       where: { email: user.email },
-      update: { name: user.name, active: true },
+      update: {
+        name: user.name,
+        active: true,
+        departmentId: user.departmentId,
+      },
       create: {
         name: user.name,
         email: user.email,
         active: true,
+        departmentId: user.departmentId,
       },
     });
 

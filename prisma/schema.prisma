@@ -40,6 +40,7 @@ enum ActivityType {
   REQUEST_CANCELLED
   MALFUNCTION_REPORTED
   MALFUNCTION_RESOLVED
+  MALFUNCTION_DELETED
   ASSIGNMENT_ACQUIRED
   MALFUNCTION_MOVEMENT
   USER_UPDATED
@@ -149,32 +150,18 @@ model ProductRequest {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  name               String
-  email              String              @unique
-  passwordHash       String
-  role               Role                @default(EMPLOYEE)
-  departmentId       String?
-  active             Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  department         Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  loginVerifications LoginVerification[]
+  id           String      @id @default(cuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  role         Role        @default(EMPLOYEE)
+  departmentId String?
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   @@index([departmentId])
-}
-
-model LoginVerification {
-  id        String    @id @default(cuid())
-  tokenHash String    @unique
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-  @@index([expiresAt])
 }
 
 model StockMovement {

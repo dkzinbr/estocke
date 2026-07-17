@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -38,7 +39,7 @@ setEnv("DATABASE_URL", data.connectionString);
 setEnv("CLAIM_URL", data.claimUrl || "");
 
 if (!/^JWT_SECRET=/m.test(env)) {
-  setEnv("JWT_SECRET", "troque-este-segredo-estocke");
+  setEnv("JWT_SECRET", randomBytes(32).toString("hex"));
 }
 if (!/^APP_URL=/m.test(env)) {
   setEnv("APP_URL", "http://localhost:3000");

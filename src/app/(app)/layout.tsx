@@ -7,7 +7,7 @@ import {
   getTokenExpiresAt,
   type Session,
 } from "@/lib/client/session";
-import { isAdminRole, ROLE_LABELS } from "@/lib/roles";
+import { isAdminRole, canViewAllOperations, ROLE_LABELS } from "@/lib/roles";
 import {
   AlertTriangle,
   Building2,
@@ -30,13 +30,16 @@ const baseNavItems = [
   { href: "/products", label: "Produtos", short: "Itens", icon: Package },
   { href: "/employees", label: "Funcionários", short: "Equipe", icon: Users },
   { href: "/requests", label: "Pedidos", short: "Pedidos", icon: ClipboardList },
-  { href: "/history", label: "Histórico", short: "Hist.", icon: History },
   {
     href: "/malfunctions",
     label: "Mal funcionamento",
     short: "Problemas",
     icon: AlertTriangle,
   },
+];
+
+const opsNavItems = [
+  { href: "/history", label: "Histórico", short: "Hist.", icon: History },
 ];
 
 const adminNavItems = [
@@ -60,10 +63,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   const admin = isAdminRole(session?.user.role);
-  const navItems = useMemo(
-    () => (admin ? [...baseNavItems, ...adminNavItems] : baseNavItems),
-    [admin],
-  );
+  const canSeeOps = canViewAllOperations(session?.user.role);
+  const navItems = useMemo(() => {
+    const items = [...baseNavItems];
+    if (canSeeOps) items.push(...opsNavItems);
+    if (admin) items.push(...adminNavItems);
+    return items;
+  }, [admin, canSeeOps]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {

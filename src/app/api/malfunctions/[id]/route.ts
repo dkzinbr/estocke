@@ -88,7 +88,7 @@ export async function DELETE(request: Request, ctx: IdRouteContext) {
     await prisma.productMalfunction.delete({ where: { id } });
 
     await logActivity(prisma, {
-      type: "MALFUNCTION_RESOLVED",
+      type: "MALFUNCTION_DELETED",
       summary: `Mal funcionamento excluído: ${existing.product.name}`,
       actor: actorFromUser(user),
       entityType: "malfunction",

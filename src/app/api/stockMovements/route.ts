@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       const nextQuantity = product.quantity + delta;
 
       if (nextQuantity < 0) {
-        throw new ApiError("Insufficient stock for this movement.", 409);
+        throw new ApiError("Estoque insuficiente para este movimento.", 409);
       }
 
       await tx.product.update({
