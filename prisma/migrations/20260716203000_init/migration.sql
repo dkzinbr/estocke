@@ -1,14 +1,30 @@
+-- Cleanup leftover objects from failed previous migrations (safe on empty DB)
+DROP TABLE IF EXISTS "StockMovement" CASCADE;
+DROP TABLE IF EXISTS "LoginVerification" CASCADE;
+DROP TABLE IF EXISTS "User" CASCADE;
+DROP TABLE IF EXISTS "Employee" CASCADE;
+DROP TABLE IF EXISTS "Product" CASCADE;
+DROP TABLE IF EXISTS "stockMovement" CASCADE;
+DROP TABLE IF EXISTS "loginVerification" CASCADE;
+DROP TABLE IF EXISTS "user" CASCADE;
+DROP TABLE IF EXISTS "employee" CASCADE;
+DROP TABLE IF EXISTS "product" CASCADE;
+DROP TYPE IF EXISTS "MovementType";
+DROP TYPE IF EXISTS "Role";
+DROP TYPE IF EXISTS "movementType";
+DROP TYPE IF EXISTS "role";
+
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
-CREATE TYPE "movementType" AS ENUM ('IN', 'OUT', 'ADJUSTMENT');
+CREATE TYPE "MovementType" AS ENUM ('IN', 'OUT', 'ADJUSTMENT');
 
 -- CreateEnum
-CREATE TYPE "role" AS ENUM ('ADMIN', 'EMPLOYEE');
+CREATE TYPE "Role" AS ENUM ('ADMIN', 'EMPLOYEE');
 
 -- CreateTable
-CREATE TABLE "product" (
+CREATE TABLE "Product" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "code" TEXT NOT NULL,
@@ -24,7 +40,7 @@ CREATE TABLE "product" (
 );
 
 -- CreateTable
-CREATE TABLE "employee" (
+CREATE TABLE "Employee" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -38,7 +54,7 @@ CREATE TABLE "employee" (
 );
 
 -- CreateTable
-CREATE TABLE "user" (
+CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -52,7 +68,7 @@ CREATE TABLE "user" (
 );
 
 -- CreateTable
-CREATE TABLE "loginVerification" (
+CREATE TABLE "LoginVerification" (
     "id" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -64,54 +80,54 @@ CREATE TABLE "loginVerification" (
 );
 
 -- CreateTable
-CREATE TABLE "stockMovement" (
+CREATE TABLE "StockMovement" (
     "id" TEXT NOT NULL,
     "productId" TEXT NOT NULL,
     "employeeId" TEXT,
-    "type" "movementType" NOT NULL,
+    "type" "MovementType" NOT NULL,
     "quantity" INTEGER NOT NULL,
     "note" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "stockMovement_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "StockMovement_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "product_code_key" ON "product"("code");
+CREATE UNIQUE INDEX "Product_code_key" ON "Product"("code");
 
 -- CreateIndex
-CREATE INDEX "product_name_idx" ON "product"("name");
+CREATE INDEX "Product_name_idx" ON "Product"("name");
 
 -- CreateIndex
-CREATE INDEX "product_active_idx" ON "product"("active");
+CREATE INDEX "Product_active_idx" ON "Product"("active");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "employee_email_key" ON "employee"("email");
+CREATE UNIQUE INDEX "Employee_email_key" ON "Employee"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "user_email_key" ON "user"("email");
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "loginVerification_tokenHash_key" ON "loginVerification"("tokenHash");
+CREATE UNIQUE INDEX "LoginVerification_tokenHash_key" ON "LoginVerification"("tokenHash");
 
 -- CreateIndex
-CREATE INDEX "loginVerification_userId_idx" ON "loginVerification"("userId");
+CREATE INDEX "LoginVerification_userId_idx" ON "LoginVerification"("userId");
 
 -- CreateIndex
-CREATE INDEX "loginVerification_expiresAt_idx" ON "loginVerification"("expiresAt");
+CREATE INDEX "LoginVerification_expiresAt_idx" ON "LoginVerification"("expiresAt");
 
 -- CreateIndex
-CREATE INDEX "stockMovement_productId_idx" ON "stockMovement"("productId");
+CREATE INDEX "StockMovement_productId_idx" ON "StockMovement"("productId");
 
 -- CreateIndex
-CREATE INDEX "stockMovement_employeeId_idx" ON "stockMovement"("employeeId");
+CREATE INDEX "StockMovement_employeeId_idx" ON "StockMovement"("employeeId");
 
 -- CreateIndex
-CREATE INDEX "stockMovement_type_idx" ON "stockMovement"("type");
+CREATE INDEX "StockMovement_type_idx" ON "StockMovement"("type");
 
 -- CreateIndex
-CREATE INDEX "stockMovement_createdAt_idx" ON "stockMovement"("createdAt");
+CREATE INDEX "StockMovement_createdAt_idx" ON "StockMovement"("createdAt");
 
 -- AddForeignKey
 ALTER TABLE "LoginVerification" ADD CONSTRAINT "LoginVerification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
