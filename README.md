@@ -194,16 +194,36 @@ Login: `/login` → JWT no cliente, validade **3h**.
 
 ## Deploy
 
-Checklist mínimo:
+### Vercel
+
+No projeto → **Settings → Environment Variables**, configure (Production e Preview):
+
+| Variável | Exemplo |
+|---|---|
+| `DATABASE_URL` | connection string PostgreSQL |
+| `JWT_SECRET` | saída de `pnpm env:secret` |
+| `APP_URL` | `https://seu-app.vercel.app` |
+
+Depois faça o redeploy. O `postinstall` roda `prisma generate` e **não exige** `DATABASE_URL` só para gerar o client; a variável ainda é obrigatória em runtime.
+
+Antes do primeiro acesso em produção, rode as migrations no banco (localmente apontando para o mesmo `DATABASE_URL`):
+
+```bash
+pnpm db:migrate
+# opcional em homolog:
+pnpm db:seed
+```
+
+### Checklist geral
 
 1. Definir `DATABASE_URL`, `JWT_SECRET` forte e `APP_URL` no host
 2. `pnpm install`
-3. `pnpm db:migrate` (e `pnpm db:seed` só se for ambiente de QA/homolog)
+3. `pnpm db:migrate` (e `pnpm db:seed` só se for QA/homolog)
 4. `pnpm build && pnpm start`
 
 Observações:
 
-- Fotos de funcionários são gravadas em `public/fotos-funcionarios` (filesystem local). Em host serverless (ex.: Vercel) use volume persistente ou storage externo antes de habilitar upload em produção.
+- Fotos de funcionários vão para `public/fotos-funcionarios` (disco local). Na Vercel o filesystem é efêmero — use storage externo se precisar de upload em produção.
 - Front e API rodam no mesmo processo Next.js.
 
 ---
