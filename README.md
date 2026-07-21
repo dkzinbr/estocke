@@ -59,21 +59,46 @@ Sistema de gestão de estoque e patrimônio interno — produtos, funcionários,
 
 ## Configuração rápida
 
+### 1. Dependências
+
 ```bash
 pnpm install
+```
+
+### 2. Ambiente
+
+```bash
 cp .env.example .env
-# preencha DATABASE_URL e JWT_SECRET
+pnpm env:secret -- --write
+```
 
-# opcional: banco online Prisma Postgres
+Defina `DATABASE_URL` no `.env` (PostgreSQL).  
+Alternativa sem Postgres local:
+
+```bash
 node scripts/create-online-db.mjs
+```
 
+O script grava `DATABASE_URL` e, se faltar, um `JWT_SECRET` aleatório.  
+Bancos criados assim expiram em 24h — abra a URL em `.claim-url.txt` e faça o **Claim**.
+
+### 3. Banco + dados iniciais
+
+```bash
 pnpm db:setup
+```
+
+Isso aplica migrations e o seed de QA (contas, departamentos, produtos).
+
+### 4. Subir a aplicação
+
+```bash
 pnpm dev
 ```
 
 App: [http://localhost:3000](http://localhost:3000)
 
-Para validar ambiente de QA de uma vez:
+Checklist único para homologação:
 
 ```bash
 pnpm qa:prepare
@@ -83,7 +108,7 @@ pnpm qa:prepare
 
 ## Contas de QA
 
-Criadas pelo seed (`pnpm db:seed`):
+Criadas pelo seed (`pnpm db:seed` / `pnpm db:setup`):
 
 | Papel | E-mail | Senha |
 |---|---|---|
@@ -92,9 +117,9 @@ Criadas pelo seed (`pnpm db:seed`):
 | EMPLOYEE | `ana.silva@estocke.local` | `troque-esta-senha` |
 | EMPLOYEE | `bruno.costa@estocke.local` | `troque-esta-senha` |
 
-Departamentos seed: **Geral**, **TI**, **RH**. Produtos e atribuições de exemplo também são criados.
+Departamentos seed: **Geral**, **TI**, **RH**. Também há produtos, atribuições e um notebook único para cenários de patrimônio.
 
-> Auto-cadastro em `/register` exige e-mail `@adcbeneficios.com.br`. Para testes de papéis, use as contas da tabela acima.
+> Auto-cadastro em `/register` exige e-mail `@adcbeneficios.com.br`. Para testar papéis, use as contas da tabela.
 
 ---
 
@@ -103,11 +128,13 @@ Departamentos seed: **Geral**, **TI**, **RH**. Produtos e atribuições de exemp
 | Variável | Obrigatória | Descrição |
 |---|---|---|
 | `DATABASE_URL` | sim | Connection string PostgreSQL |
-| `JWT_SECRET` | sim | Segredo forte (não use o placeholder) |
+| `JWT_SECRET` | sim | Segredo criptográfico — gere com `pnpm env:secret` |
 | `APP_URL` | sim | URL pública (ex.: `http://localhost:3000`) |
-| `SEED_ADMIN_*` | não | Sobrescreve o admin do seed |
+| `SEED_ADMIN_EMAIL` | não | E-mail do admin no seed |
+| `SEED_ADMIN_PASSWORD` | não | Senha do admin no seed |
+| `SEED_ADMIN_NAME` | não | Nome do admin no seed |
 
-Arquivos `.env*` não vão para o Git (exceto `.env.example`).
+Arquivos `.env*` **não** entram no Git (exceto `.env.example`).
 
 ---
 
@@ -160,6 +187,7 @@ Login: `/login` → JWT no cliente, validade **3h**.
 | `pnpm start` | Sobe o build |
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | TypeScript |
+| `pnpm env:secret` | Gera JWT_SECRET forte (use `-- --write` para gravar no `.env`) |
 | `pnpm qa:prepare` | migrate + seed + typecheck |
 
 ---

@@ -134,7 +134,10 @@ export async function DELETE(request: Request, ctx: IdRouteContext) {
         movementDelta(stockMovement.type, stockMovement.quantity);
 
       if (nextQuantity < 0) {
-        throw new ApiError("Cannot remove movement without negative stock.", 409);
+        throw new ApiError(
+          "Não é possível remover o movimento sem estoque negativo.",
+          409,
+        );
       }
 
       await tx.product.update({
