@@ -196,15 +196,23 @@ Login: `/login` → JWT no cliente, validade **3h**.
 
 ### Vercel
 
-No projeto → **Settings → Environment Variables**, configure (Production e Preview):
+No projeto → **Settings → Environment Variables**, marque **Production**, **Preview** e **Development** e adicione:
 
-| Variável | Exemplo |
+| Variável | Valor |
 |---|---|
-| `DATABASE_URL` | connection string PostgreSQL |
-| `JWT_SECRET` | saída de `pnpm env:secret` |
-| `APP_URL` | `https://seu-app.vercel.app` |
+| `DATABASE_URL` | a mesma connection string do seu `.env` local |
+| `JWT_SECRET` | `pnpm env:secret` |
+| `APP_URL` | URL do app (ex.: `https://estocke-adc.vercel.app`) |
 
-Depois faça o redeploy. O `postinstall` roda `prisma generate` e **não exige** `DATABASE_URL` só para gerar o client; a variável ainda é obrigatória em runtime.
+Ou, com o projeto linkado (`pnpm dlx vercel link`):
+
+```bash
+node scripts/vercel-set-env.mjs
+# se o deploy for no projeto estocke-adc:
+node scripts/vercel-set-env.mjs --project=estocke-adc
+```
+
+Depois faça **Redeploy**. O erro `DATABASE_URL is not configured.` some quando a variável existe nas três abas.
 
 Antes do primeiro acesso em produção, rode as migrations no banco (localmente apontando para o mesmo `DATABASE_URL`):
 
