@@ -1,7 +1,7 @@
 "use client";
 
-import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { Modal } from "@/components/modal";
+import { Field } from "@/components/field";
 import { RefreshButton } from "@/components/refresh-button";
 import { apiFetch, jsonBody } from "@/lib/client/api";
 import { getSession } from "@/lib/client/session";
@@ -13,8 +13,8 @@ import {
 } from "@/lib/product-status";
 import { canRequestProduct } from "@/lib/product-request-rules";
 import { canActForOthers, isAdminRole } from "@/lib/roles";
-import { CheckCircle2, Plus, Trash2, XCircle } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Loader2, Plus, XCircle } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 type EmployeeOption = {
@@ -44,29 +44,21 @@ type ProductRequest = {
   product: ProductOption & { stockStatus: StockStatus };
 };
 
-type ListTab = "all" | "in_stock" | "shortage" | "malfunction";
-
-const tabLabels: Record<ListTab, string> = {
-  all: "Todos",
-  in_stock: "Em estoque",
-  shortage: "Pedido aberto",
-  malfunction: "Mal funcionamento",
-};
-
 export default function RequestsPage() {
   const [requests, setRequests] = useState<ProductRequest[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<ListTab>("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [actingStatus, setActingStatus] = useState<
+    "FULFILLED" | "CANCELLED" | null
+  >(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState("");
   const [productId, setProductId] = useState("");
   const [note, setNote] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<ProductRequest | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canPickEmployee, setCanPickEmployee] = useState(false);
   const [selfEmployeeId, setSelfEmployeeId] = useState<string | null>(null);
@@ -135,27 +127,6 @@ export default function RequestsPage() {
     return () => window.clearTimeout(timeout);
   }, [loadOptions, loadRequests]);
 
-  const filteredRequests = useMemo(() => {
-    if (tab === "in_stock") {
-      return requests.filter(
-        (item) => item.product.stockStatus === "in_stock",
-      );
-    }
-    if (tab === "malfunction") {
-      return requests.filter(
-        (item) => item.product.stockStatus === "malfunction",
-      );
-    }
-    if (tab === "shortage") {
-      return requests.filter(
-        (item) =>
-          item.product.stockStatus === "attention" ||
-          item.product.stockStatus === "out_of_stock",
-      );
-    }
-    return requests;
-  }, [requests, tab]);
-
   const selectedProduct = products.find((product) => product.id === productId);
   const selectedCanRequest = selectedProduct
     ? canRequestProduct({
@@ -203,7 +174,7 @@ export default function RequestsPage() {
     setSaving(true);
 
     try {
-      const created = await apiFetch<ProductRequest>("/api/requests", {
+      await apiFetch<ProductRequest>("/api/requests", {
         method: "POST",
         body: jsonBody({
           employeeId,
@@ -212,21 +183,8 @@ export default function RequestsPage() {
         }),
       });
 
-      toast.success(
-        created.product.stockStatus === "malfunction"
-          ? "Pedido criado e listado em Mal funcionamento."
-          : created.product.stockStatus === "out_of_stock" ||
-              created.product.stockStatus === "attention"
-            ? "Pedido criado e listado em Pedido aberto."
-            : "Pedido criado.",
-      );
+      toast.success("Pedido criado.");
       setModalOpen(false);
-
-      if (created.product.stockStatus === "malfunction") {
-        setTab("malfunction");
-      } else {
-        setTab("shortage");
-      }
 
       await loadRequests();
     } catch (error) {
@@ -242,6 +200,9 @@ export default function RequestsPage() {
     item: ProductRequest,
     status: "FULFILLED" | "CANCELLED",
   ) {
+    if (actingId) return;
+    setActingId(item.id);
+    setActingStatus(status);
     try {
       await apiFetch(`/api/requests/${item.id}`, {
         method: "PATCH",
@@ -257,23 +218,9 @@ export default function RequestsPage() {
       toast.error(
         error instanceof Error ? error.message : "Erro ao atualizar pedido.",
       );
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await apiFetch(`/api/requests/${deleteTarget.id}`, { method: "DELETE" });
-      toast.success("Pedido excluído.");
-      setDeleteTarget(null);
-      await loadRequests();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao excluir pedido.",
-      );
     } finally {
-      setDeleting(false);
+      setActingId(null);
+      setActingStatus(null);
     }
   }
 
@@ -288,7 +235,7 @@ export default function RequestsPage() {
           <p className="mt-2 text-sm text-adc-muted">
             {canPickEmployee
               ? "Administradores podem pedir para qualquer pessoa. Ao atender, o produto entra na listagem do funcionário."
-              : "Você só pode criar pedidos para si. Itens sem estoque ou com pedido em aberto vão para a aba Pedido aberto."}
+              : "Você só pode criar pedidos para si. Aqui ficam apenas os pedidos em aberto."}
           </p>
         </div>
 
@@ -305,29 +252,6 @@ export default function RequestsPage() {
 
       <section className="adc-panel overflow-hidden">
         <div className="border-b border-adc-border bg-background/50 p-4">
-          <div className="mb-3 flex flex-wrap gap-2">
-            {(Object.keys(tabLabels) as ListTab[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-                  tab === key
-                    ? key === "shortage"
-                      ? "bg-adc-danger-bg text-adc-danger-text"
-                      : key === "malfunction"
-                        ? "bg-orange-500/15 text-orange-800"
-                        : key === "in_stock"
-                          ? "bg-emerald-500/15 text-emerald-700"
-                          : "bg-adc-blue/10 text-adc-blue"
-                    : "border border-adc-border text-adc-muted hover:bg-background"
-                }`}
-              >
-                {tabLabels[key]}
-              </button>
-            ))}
-          </div>
-
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -373,8 +297,8 @@ export default function RequestsPage() {
                     Carregando pedidos...
                   </td>
                 </tr>
-              ) : filteredRequests.length ? (
-                filteredRequests.map((item) => (
+              ) : requests.length ? (
+                requests.map((item) => (
                   <tr key={item.id}>
                     <td className="px-4 py-3 font-medium text-adc-navy">
                       {item.employee.name}
@@ -406,28 +330,32 @@ export default function RequestsPage() {
                           <button
                             type="button"
                             onClick={() => void updateStatus(item, "FULFILLED")}
-                            className="rounded-lg border border-adc-border p-2 text-emerald-700 hover:bg-background"
+                            disabled={!!actingId}
+                            className="rounded-lg border border-adc-border p-2 text-emerald-700 hover:bg-background disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label="Atender pedido"
                             title="Atender"
                           >
-                            <CheckCircle2 size={16} />
+                            {actingId === item.id &&
+                            actingStatus === "FULFILLED" ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <CheckCircle2 size={16} />
+                            )}
                           </button>
                           <button
                             type="button"
                             onClick={() => void updateStatus(item, "CANCELLED")}
-                            className="rounded-lg border border-adc-border p-2 text-adc-muted hover:bg-background"
+                            disabled={!!actingId}
+                            className="rounded-lg border border-adc-border p-2 text-adc-muted hover:bg-background disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label="Cancelar pedido"
                             title="Cancelar"
                           >
-                            <XCircle size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(item)}
-                            className="rounded-lg border border-adc-border p-2 text-red-600 hover:bg-adc-danger-bg"
-                            aria-label="Excluir pedido"
-                          >
-                            <Trash2 size={16} />
+                            {actingId === item.id &&
+                            actingStatus === "CANCELLED" ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <XCircle size={16} />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -455,15 +383,12 @@ export default function RequestsPage() {
         onClose={() => setModalOpen(false)}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="text-sm font-medium text-adc-navy">
-              Funcionário
-            </span>
+          <Field label="Funcionário" required={canPickEmployee}>
             {canPickEmployee ? (
               <select
                 value={employeeId}
                 onChange={(event) => setEmployeeId(event.target.value)}
-                className="input mt-1"
+                className="input"
                 required
               >
                 <option value="">Selecione</option>
@@ -478,7 +403,7 @@ export default function RequestsPage() {
               </select>
             ) : (
               <input
-                className="input mt-1"
+                className="input"
                 value={
                   employees.find((employee) => employee.id === employeeId)
                     ?.name ?? "Você"
@@ -487,14 +412,13 @@ export default function RequestsPage() {
                 readOnly
               />
             )}
-          </label>
+          </Field>
 
-          <label className="block">
-            <span className="text-sm font-medium text-adc-navy">Produto</span>
+          <Field label="Produto" required>
             <select
               value={productId}
               onChange={(event) => setProductId(event.target.value)}
-              className="input mt-1"
+              className="input"
               required
             >
               <option value="">Selecione</option>
@@ -516,7 +440,7 @@ export default function RequestsPage() {
                 );
               })}
             </select>
-          </label>
+          </Field>
 
           {selectedProduct && !selectedCanRequest ? (
             <p className="rounded-xl bg-amber-400/15 px-3 py-2 text-sm text-amber-800">
@@ -543,26 +467,17 @@ export default function RequestsPage() {
                   ? STOCK_STATUS_LABELS[selectedProduct.stockStatus]
                   : "—"}
               </strong>
-              {selectedProduct.stockStatus === "malfunction"
-                ? " — este pedido entrará na aba Mal funcionamento."
-                : selectedProduct.stockStatus === "attention" ||
-                    selectedProduct.stockStatus === "out_of_stock"
-                  ? " — este pedido entrará na aba Pedido aberto."
-                  : null}
             </p>
           ) : null}
 
-          <label className="block">
-            <span className="text-sm font-medium text-adc-navy">
-              Observação (opcional)
-            </span>
+          <Field label="Observação">
             <textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              className="input mt-1 min-h-20"
+              className="input min-h-20"
               placeholder="Motivo ou detalhe do pedido"
             />
-          </label>
+          </Field>
 
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <button
@@ -582,16 +497,6 @@ export default function RequestsPage() {
           </div>
         </form>
       </Modal>
-
-      <ConfirmDeleteModal
-        open={!!deleteTarget}
-        description={`Excluir o pedido de "${deleteTarget?.product.name}" para ${deleteTarget?.employee.name}?`}
-        confirming={deleting}
-        onCancel={() => {
-          if (!deleting) setDeleteTarget(null);
-        }}
-        onConfirm={() => void confirmDelete()}
-      />
     </div>
   );
 }

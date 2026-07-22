@@ -1,7 +1,10 @@
 import { ApiError, error, handleApiError, json } from "@/lib/api";
 import { actorFromUser, logActivity } from "@/lib/activity";
 import { requireAuth } from "@/lib/auth";
-import { deleteEmployeePhoto, isEmployeePhotoPath } from "@/lib/employee-photos";
+import {
+  deleteEmployeePhoto,
+  isEmployeePhotoValue,
+} from "@/lib/employee-photos";
 import {
   employeeListSelect,
   syncEmployeeAssignments,
@@ -16,9 +19,15 @@ const assignmentSchema = z.object({
   quantity: z.number().int().min(1),
 });
 
+const optionalContactEmail = z.preprocess(
+  (value) => (value === "" ? null : value),
+  z.string().trim().email().nullable().optional(),
+);
+
 const updateEmployeeSchema = z.object({
   name: z.string().trim().min(1).optional(),
   email: z.string().trim().email().optional(),
+  contactEmail: optionalContactEmail,
   phone: z.string().trim().optional().nullable(),
   departmentId: z.string().trim().min(1).optional().nullable(),
   photoUrl: z
@@ -26,9 +35,12 @@ const updateEmployeeSchema = z.object({
     .trim()
     .optional()
     .nullable()
-    .refine((value) => value == null || value === "" || isEmployeePhotoPath(value), {
-      message: "photoUrl must be a stored employee photo path.",
-    }),
+    .refine(
+      (value) => value == null || value === "" || isEmployeePhotoValue(value),
+      {
+        message: "photoUrl must be a stored employee photo path or data URL.",
+      },
+    ),
   active: z.boolean().optional(),
   assignments: z.array(assignmentSchema).optional(),
 });
@@ -61,7 +73,7 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
   try {
     const user = await requireAuth(request, { roles: [Role.ADMIN] });
     const { id } = await ctx.params;
-    const { assignments, photoUrl, departmentId, ...data } =
+    const { assignments, photoUrl, departmentId, email, ...data } =
       updateEmployeeSchema.parse(await request.json());
 
     if (departmentId) {
@@ -76,12 +88,39 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
 
     const existing = await prisma.employee.findUnique({
       where: { id },
-      select: { photoUrl: true },
+      select: {
+        photoUrl: true,
+        email: true,
+        userId: true,
+        name: true,
+        departmentId: true,
+        active: true,
+      },
     });
     if (!existing) return error("Funcionário não encontrado.", 404);
 
+    if (
+      email !== undefined &&
+      email.toLowerCase() !== existing.email.toLowerCase()
+    ) {
+      throw new ApiError(
+        "O e-mail de login não pode ser alterado após o cadastro.",
+        400,
+      );
+    }
+
     const nextPhotoUrl =
       photoUrl === undefined ? undefined : photoUrl || null;
+
+    const linkedUserId =
+      existing.userId ??
+      (
+        await prisma.user.findUnique({
+          where: { email: existing.email },
+          select: { id: true },
+        })
+      )?.id ??
+      null;
 
     const employee = await prisma.$transaction(async (tx) => {
       await tx.employee.update({
@@ -92,8 +131,30 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
             ? { departmentId: departmentId || null }
             : {}),
           ...(nextPhotoUrl !== undefined ? { photoUrl: nextPhotoUrl } : {}),
+          ...(linkedUserId && !existing.userId ? { userId: linkedUserId } : {}),
         },
       });
+
+      if (linkedUserId) {
+        const userUpdate: {
+          name?: string;
+          departmentId?: string | null;
+          active?: boolean;
+        } = {};
+
+        if (data.name !== undefined) userUpdate.name = data.name;
+        if (departmentId !== undefined) {
+          userUpdate.departmentId = departmentId || null;
+        }
+        if (data.active !== undefined) userUpdate.active = data.active;
+
+        if (Object.keys(userUpdate).length > 0) {
+          await tx.user.update({
+            where: { id: linkedUserId },
+            data: userUpdate,
+          });
+        }
+      }
 
       if (assignments) {
         await syncEmployeeAssignments(tx, id, assignments);
@@ -104,9 +165,16 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
         select: employeeListSelect,
       });
 
+      let summary = `Funcionário atualizado: ${result.name}`;
+      if (data.active === false) {
+        summary = `Funcionário desativado (acesso ao login bloqueado): ${result.name}`;
+      } else if (data.active === true && existing.active === false) {
+        summary = `Funcionário reativado (acesso ao login liberado): ${result.name}`;
+      }
+
       await logActivity(tx, {
         type: "EMPLOYEE_UPDATED",
-        summary: `Funcionário atualizado: ${result.name}`,
+        summary,
         actor: actorFromUser(user),
         entityType: "employee",
         entityId: result.id,

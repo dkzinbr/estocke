@@ -43,6 +43,8 @@ enum ActivityType {
   MALFUNCTION_DELETED
   ASSIGNMENT_ACQUIRED
   MALFUNCTION_MOVEMENT
+  PRODUCT_LINKED
+  PRODUCT_UNLINKED
   USER_UPDATED
   USER_REGISTERED
   STOCK_ADJUSTED
@@ -62,9 +64,27 @@ model Product {
   assignments    ProductAssignment[]
   malfunctions   ProductMalfunction[]
   requests       ProductRequest[]
+  childLinks     ProductLink[]        @relation("ProductParent")
+  parentLinks    ProductLink[]        @relation("ProductChild")
 
   @@index([name])
   @@index([active])
+}
+
+model ProductLink {
+  id        String   @id @default(cuid())
+  parentId  String
+  childId   String
+  quantity  Int      @default(1)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  parent    Product  @relation("ProductParent", fields: [parentId], references: [id], onDelete: Cascade)
+  child     Product  @relation("ProductChild", fields: [childId], references: [id], onDelete: Restrict)
+
+  @@unique([parentId, childId])
+  @@index([parentId])
+  @@index([childId])
 }
 
 model Department {
@@ -84,19 +104,23 @@ model Employee {
   id             String               @id @default(cuid())
   name           String
   email          String               @unique
+  contactEmail   String?
   phone          String?
   photoUrl       String?
   departmentId   String?
+  userId         String?              @unique
   active         Boolean              @default(true)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   department     Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   stockMovements StockMovement[]
   assignments    ProductAssignment[]
   requests       ProductRequest[]
   malfunctions   ProductMalfunction[]
 
   @@index([departmentId])
+  @@index([contactEmail])
 }
 
 model ProductAssignment {
@@ -150,16 +174,18 @@ model ProductRequest {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  name         String
-  email        String      @unique
-  passwordHash String
-  role         Role        @default(EMPLOYEE)
-  departmentId String?
-  active       Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  id                 String      @id @default(cuid())
+  name               String
+  email              String      @unique
+  passwordHash       String
+  role               Role        @default(EMPLOYEE)
+  departmentId       String?
+  active             Boolean     @default(true)
+  mustChangePassword Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  department         Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employee           Employee?
 
   @@index([departmentId])
 }

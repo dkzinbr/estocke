@@ -1,12 +1,13 @@
 "use client";
 
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { Field } from "@/components/field";
 import { Modal } from "@/components/modal";
 import { RefreshButton } from "@/components/refresh-button";
 import { apiFetch, jsonBody } from "@/lib/client/api";
 import { getSession } from "@/lib/client/session";
 import { canActForOthers, isAdminRole } from "@/lib/roles";
-import { AlertTriangle, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -51,6 +52,7 @@ export default function MalfunctionsPage() {
   const [description, setDescription] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Malfunction | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canReportAny, setCanReportAny] = useState(false);
 
@@ -145,6 +147,8 @@ export default function MalfunctionsPage() {
   }
 
   async function resolveItem(item: Malfunction) {
+    if (resolvingId || deleting) return;
+    setResolvingId(item.id);
     try {
       await apiFetch(`/api/malfunctions/${item.id}`, {
         method: "PATCH",
@@ -156,11 +160,13 @@ export default function MalfunctionsPage() {
       toast.error(
         error instanceof Error ? error.message : "Erro ao resolver.",
       );
+    } finally {
+      setResolvingId(null);
     }
   }
 
   async function confirmDelete() {
-    if (!deleteTarget) return;
+    if (!deleteTarget || deleting || resolvingId) return;
     setDeleting(true);
     try {
       await apiFetch(`/api/malfunctions/${deleteTarget.id}`, {
@@ -294,19 +300,31 @@ export default function MalfunctionsPage() {
                       <button
                         type="button"
                         onClick={() => void resolveItem(item)}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-adc-border px-3 py-2 text-sm font-semibold text-adc-navy hover:bg-background"
+                        disabled={!!resolvingId || deleting}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-adc-border px-3 py-2 text-sm font-semibold text-adc-navy hover:bg-background disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <CheckCircle2 size={16} />
-                        Resolver
+                        {resolvingId === item.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={16} />
+                        )}
+                        {resolvingId === item.id ? "Resolvendo..." : "Resolver"}
                       </button>
                     ) : null}
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(item)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-adc-border px-3 py-2 text-sm font-semibold text-red-600 hover:bg-adc-danger-bg"
+                      disabled={!!resolvingId || deleting}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-adc-border px-3 py-2 text-sm font-semibold text-red-600 hover:bg-adc-danger-bg disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <Trash2 size={16} />
-                      Excluir
+                      {deleting && deleteTarget?.id === item.id ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                      {deleting && deleteTarget?.id === item.id
+                        ? "Excluindo..."
+                        : "Excluir"}
                     </button>
                   </div>
                 ) : null}
@@ -326,12 +344,11 @@ export default function MalfunctionsPage() {
         onClose={() => setModalOpen(false)}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="text-sm font-medium text-adc-navy">Produto</span>
+          <Field label="Produto" required>
             <select
               value={productId}
               onChange={(event) => setProductId(event.target.value)}
-              className="input mt-1"
+              className="input"
               required
             >
               <option value="">Selecione</option>
@@ -341,21 +358,18 @@ export default function MalfunctionsPage() {
                 </option>
               ))}
             </select>
-          </label>
+          </Field>
 
-          <label className="block">
-            <span className="text-sm font-medium text-adc-navy">
-              Descrição do problema
-            </span>
+          <Field label="Descrição do problema" required>
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              className="input mt-1 min-h-28"
+              className="input min-h-28"
               required
               minLength={3}
               placeholder="Ex.: tela com manchas, não liga, teclado com teclas falhando..."
             />
-          </label>
+          </Field>
 
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <button

@@ -35,6 +35,7 @@ async function upsertUserWithEmployee(
       role: params.role,
       departmentId: params.departmentId,
       active: true,
+      mustChangePassword: false,
     },
     create: {
       email: params.email,
@@ -43,6 +44,7 @@ async function upsertUserWithEmployee(
       role: params.role,
       departmentId: params.departmentId,
       active: true,
+      mustChangePassword: false,
     },
   });
 
@@ -53,6 +55,7 @@ async function upsertUserWithEmployee(
       phone: params.phone ?? null,
       departmentId: params.departmentId,
       active: true,
+      userId: user.id,
     },
     create: {
       name: params.name,
@@ -60,6 +63,7 @@ async function upsertUserWithEmployee(
       phone: params.phone ?? null,
       departmentId: params.departmentId,
       active: true,
+      userId: user.id,
     },
   });
 

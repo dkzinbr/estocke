@@ -119,7 +119,7 @@ Criadas pelo seed (`pnpm db:seed` / `pnpm db:setup`):
 
 Departamentos seed: **Geral**, **TI**, **RH**. Também há produtos, atribuições e um notebook único para cenários de patrimônio.
 
-> Auto-cadastro em `/register` exige e-mail `@adcbeneficios.com.br`. Para testar papéis, use as contas da tabela.
+> Contas são criadas pelo **admin** em Funcionários (senha inicial padrão; alteração obrigatória no 1º login). `/register` está desativado.
 
 ---
 
@@ -248,7 +248,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 | Área | Prefixo |
 |---|---|
-| Auth | `/api/auth/login`, `/api/auth/register` |
+| Auth | `/api/auth/login`, `/api/auth/change-password` |
 | Produtos | `/api/products` |
 | Funcionários | `/api/employees` |
 | Departamentos | `/api/departments` |

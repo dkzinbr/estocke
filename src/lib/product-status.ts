@@ -6,7 +6,7 @@ export type StockStatus =
 
 export const STOCK_STATUS_LABELS: Record<StockStatus, string> = {
   in_stock: "Em estoque",
-  attention: "Sem estoque",
+  attention: "Estoque baixo",
   out_of_stock: "Pedido aberto",
   malfunction: "Mal funcionamento",
 };
@@ -21,12 +21,17 @@ export const STOCK_STATUS_TONES: Record<StockStatus, string> = {
 /**
  * Status do produto:
  * - Mal funcionamento: mal funcionamento aberto e estoque total ≤ 1
- * - Pedido aberto: estoque zerado OU pedido aberto (demanda em aberto)
- * - Em estoque / Sem estoque: conforme disponibilidade
+ * - Pedido aberto: estoque zerado OU pedido aberto
+ * - Estoque baixo: disponíveis ≤ mínimo configurado
+ * - Em estoque: disponíveis acima do mínimo
+ *
+ * O mínimo (`minStock`) refere-se a unidades **ainda disponíveis**
+ * (não vinculadas), não ao total cadastrado.
  */
 export function getStockStatus(product: {
   quantity: number;
   availableQuantity: number;
+  minStock?: number;
   hasOpenMalfunction?: boolean;
   hasOpenRequest?: boolean;
 }): StockStatus {
@@ -37,9 +42,14 @@ export function getStockStatus(product: {
     return "out_of_stock";
   }
 
-  const half = product.quantity / 2;
-  if (product.availableQuantity > half) return "in_stock";
-  return "attention";
+  const minStock = product.minStock ?? 0;
+  if (minStock > 0 && product.availableQuantity <= minStock) {
+    return "attention";
+  }
+  if (product.availableQuantity <= 0) {
+    return "attention";
+  }
+  return "in_stock";
 }
 
 export function formatAvailableLabel(availableQuantity: number) {
@@ -53,6 +63,7 @@ export function formatStockCounts(product: {
   assignedQuantity: number;
   quantity: number;
   availableQuantity: number;
+  minStock?: number;
   hasOpenMalfunction?: boolean;
   hasOpenRequest?: boolean;
 }) {
@@ -71,4 +82,12 @@ export function formatStockCounts(product: {
         ? "pedido em aberto"
         : formatAvailableLabel(product.availableQuantity),
   };
+}
+
+/** Estoque baixo: disponíveis ≤ mínimo (quando mínimo > 0). */
+export function isLowAvailableStock(product: {
+  availableQuantity: number;
+  minStock: number;
+}) {
+  return product.minStock > 0 && product.availableQuantity <= product.minStock;
 }

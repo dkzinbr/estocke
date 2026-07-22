@@ -2,15 +2,18 @@
 
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { EmployeeAvatar } from "@/components/employee-avatar";
+import { Field } from "@/components/field";
 import { Modal } from "@/components/modal";
 import { RefreshButton } from "@/components/refresh-button";
 import { apiFetch, jsonBody } from "@/lib/client/api";
 import { getSession } from "@/lib/client/session";
+import { isEmployeePhotoValue } from "@/lib/employee-photo-utils";
 import { canRequestProduct } from "@/lib/product-request-rules";
 import { isAdminRole } from "@/lib/roles";
 import {
   Camera,
   ClipboardList,
+  Link2,
   Minus,
   Package,
   Plus,
@@ -18,14 +21,7 @@ import {
   Trash2,
   UserPlus,
 } from "lucide-react";
-import {
-  FormEvent,
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type ProductRef = {
@@ -49,9 +45,11 @@ type Employee = {
   id: string;
   name: string;
   email: string;
+  contactEmail: string | null;
   phone: string | null;
   photoUrl: string | null;
   departmentId: string | null;
+  userId: string | null;
   department: { id: string; name: string } | null;
   active: boolean;
   assignments: Assignment[];
@@ -69,6 +67,7 @@ type ProductOption = {
   code: string;
   quantity: number;
   assignedQuantity: number;
+  linkedQuantity?: number;
   availableQuantity: number;
   hasOpenMalfunction?: boolean;
   assignments: { employeeId: string; quantity: number }[];
@@ -83,21 +82,21 @@ type EmployeeForm = {
   id?: string;
   name: string;
   email: string;
+  contactEmail: string;
   phone: string;
   departmentId: string;
   photoUrl: string;
   active: boolean;
-  assignments: FormAssignment[];
 };
 
 const emptyForm: EmployeeForm = {
   name: "",
   email: "",
+  contactEmail: "",
   phone: "",
   departmentId: "",
   photoUrl: "",
   active: true,
-  assignments: [],
 };
 
 export default function EmployeesPage() {
@@ -109,9 +108,12 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<Employee | null>(null);
   const [form, setForm] = useState<EmployeeForm>(emptyForm);
+  const [assignEmployee, setAssignEmployee] = useState<Employee | null>(null);
+  const [assignments, setAssignments] = useState<FormAssignment[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
@@ -188,7 +190,6 @@ export default function EmployeesPage() {
 
   function openCreate() {
     resetPhotoSelection();
-    setProductSearch("");
     setForm({
       ...emptyForm,
       departmentId: departments[0]?.id ?? "",
@@ -198,25 +199,32 @@ export default function EmployeesPage() {
 
   function openEdit(employee: Employee) {
     resetPhotoSelection();
-    setProductSearch("");
-    const storedPhoto =
-      employee.photoUrl?.startsWith("/fotos-funcionarios/") ?
-        employee.photoUrl
+    const storedPhoto = isEmployeePhotoValue(employee.photoUrl)
+      ? employee.photoUrl!
       : "";
     setForm({
       id: employee.id,
       name: employee.name,
       email: employee.email,
+      contactEmail: employee.contactEmail ?? "",
       phone: employee.phone ?? "",
       departmentId: employee.departmentId ?? employee.department?.id ?? "",
       photoUrl: storedPhoto,
       active: employee.active,
-      assignments: employee.assignments.map((item) => ({
+    });
+    setFormOpen(true);
+  }
+
+  function openAssign(employee: Employee) {
+    setProductSearch("");
+    setAssignEmployee(employee);
+    setAssignments(
+      employee.assignments.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
       })),
-    });
-    setFormOpen(true);
+    );
+    setAssignOpen(true);
   }
 
   function openDetail(employee: Employee) {
@@ -227,16 +235,22 @@ export default function EmployeesPage() {
   function closeForm() {
     setFormOpen(false);
     setForm(emptyForm);
-    setProductSearch("");
     resetPhotoSelection();
+  }
+
+  function closeAssign() {
+    setAssignOpen(false);
+    setAssignEmployee(null);
+    setAssignments([]);
+    setProductSearch("");
   }
 
   function handlePhotoChange(file: File | null) {
     resetPhotoSelection();
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("Selecione um arquivo de imagem.");
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      toast.error("Use JPG, PNG, WEBP ou GIF.");
       return;
     }
 
@@ -255,31 +269,26 @@ export default function EmployeesPage() {
   }
 
   function maxQuantityFor(product: ProductOption) {
-    const others = product.assignments
-      .filter((item) => item.employeeId !== form.id)
-      .reduce((sum, item) => sum + item.quantity, 0);
-    return Math.max(product.quantity - others, 0);
+    const currentDb =
+      assignEmployee
+        ? product.assignments
+            .filter((item) => item.employeeId === assignEmployee.id)
+            .reduce((sum, item) => sum + item.quantity, 0)
+        : 0;
+    return product.availableQuantity + currentDb;
   }
 
   function assignmentQty(productId: string) {
     return (
-      form.assignments.find((item) => item.productId === productId)?.quantity ??
-      0
+      assignments.find((item) => item.productId === productId)?.quantity ?? 0
     );
   }
 
   function setAssignmentQty(productId: string, quantity: number) {
-    setForm((current) => {
-      const without = current.assignments.filter(
-        (item) => item.productId !== productId,
-      );
-      if (quantity <= 0) {
-        return { ...current, assignments: without };
-      }
-      return {
-        ...current,
-        assignments: [...without, { productId, quantity }],
-      };
+    setAssignments((current) => {
+      const without = current.filter((item) => item.productId !== productId);
+      if (quantity <= 0) return without;
+      return [...without, { productId, quantity }];
     });
   }
 
@@ -289,16 +298,18 @@ export default function EmployeesPage() {
   }
 
   async function quickOrder(product: ProductOption) {
-    if (!form.id) {
-      toast.error("Salve o funcionário antes de criar um pedido rápido.");
+    if (!assignEmployee) {
+      toast.error("Selecione um funcionário para o pedido rápido.");
       return;
     }
 
-    if (!canRequestProduct({
-      quantity: product.quantity,
-      availableQuantity: product.availableQuantity,
-      hasOpenMalfunction: !!product.hasOpenMalfunction,
-    })) {
+    if (
+      !canRequestProduct({
+        quantity: product.quantity,
+        availableQuantity: product.availableQuantity,
+        hasOpenMalfunction: !!product.hasOpenMalfunction,
+      })
+    ) {
       toast.error(
         "Item único em mal funcionamento. Não é possível pedir.",
       );
@@ -311,7 +322,7 @@ export default function EmployeesPage() {
         method: "POST",
         body: jsonBody({
           productId: product.id,
-          employeeId: form.id,
+          employeeId: assignEmployee.id,
           note: "Pedido rápido (sem estoque disponível)",
         }),
       });
@@ -342,10 +353,11 @@ export default function EmployeesPage() {
       if (bQty > 0 && aQty === 0) return 1;
       return a.name.localeCompare(b.name, "pt-BR");
     });
-  }, [allProducts, form.assignments, productSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- assignmentQty depends on assignments
+  }, [allProducts, assignments, productSearch]);
 
-  const linkedCount = form.assignments.filter((item) => item.quantity > 0).length;
-  const linkedUnits = form.assignments.reduce(
+  const linkedCount = assignments.filter((item) => item.quantity > 0).length;
+  const linkedUnits = assignments.reduce(
     (sum, item) => sum + item.quantity,
     0,
   );
@@ -367,29 +379,85 @@ export default function EmployeesPage() {
         photoUrl = uploaded.photoUrl;
       }
 
-      const payload = {
-        name: form.name,
-        email: form.email,
-        phone: form.phone || null,
-        departmentId: form.departmentId || null,
-        photoUrl,
-        active: form.active,
-        assignments: form.assignments.filter((item) => item.quantity > 0),
-      };
+      if (form.id) {
+        const wasActive = employees.find((item) => item.id === form.id)?.active;
+        await apiFetch<Employee>(`/api/employees/${form.id}`, {
+          method: "PATCH",
+          body: jsonBody({
+            name: form.name,
+            contactEmail: form.contactEmail || null,
+            phone: form.phone || null,
+            departmentId: form.departmentId || null,
+            photoUrl,
+            active: form.active,
+          }),
+        });
+        if (wasActive === true && form.active === false) {
+          toast.success(
+            "Funcionário desativado. O acesso de login também foi bloqueado.",
+          );
+        } else if (wasActive === false && form.active === true) {
+          toast.success(
+            "Funcionário reativado. O acesso de login também foi liberado.",
+          );
+        } else {
+          toast.success("Funcionário atualizado.");
+        }
+      } else {
+        const created = await apiFetch<Employee & { temporaryPassword?: string }>(
+          "/api/employees",
+          {
+            method: "POST",
+            body: jsonBody({
+              name: form.name,
+              email: form.email,
+              contactEmail: form.contactEmail || null,
+              phone: form.phone || null,
+              departmentId: form.departmentId || null,
+              photoUrl,
+              active: form.active,
+            }),
+          },
+        );
+        const pwd = created.temporaryPassword;
+        toast.success(
+          pwd
+            ? `Funcionário criado. Senha inicial: ${pwd} (alterar no 1º login).`
+            : "Funcionário criado.",
+        );
+      }
 
-      await apiFetch<Employee>(
-        form.id ? `/api/employees/${form.id}` : "/api/employees",
-        {
-          method: form.id ? "PATCH" : "POST",
-          body: jsonBody(payload),
-        },
-      );
-      toast.success(form.id ? "Funcionário atualizado." : "Funcionário criado.");
       closeForm();
       await Promise.all([loadEmployees(), loadProducts()]);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Erro ao salvar funcionário.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAssignSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!assignEmployee) return;
+    setSaving(true);
+
+    try {
+      await apiFetch<Employee>(`/api/employees/${assignEmployee.id}`, {
+        method: "PATCH",
+        body: jsonBody({
+          assignments: assignments.filter((item) => item.quantity > 0),
+        }),
+      });
+      toast.success("Produtos vinculados.");
+      closeAssign();
+      setDetailOpen(false);
+      setSelected(null);
+      await Promise.all([loadEmployees(), loadProducts()]);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao vincular produtos.",
       );
     } finally {
       setSaving(false);
@@ -544,6 +612,11 @@ export default function EmployeesPage() {
               <div className="min-w-0">
                 <p className="font-semibold text-adc-navy">{selected.name}</p>
                 <p className="text-sm text-adc-muted">{selected.email}</p>
+                {selected.contactEmail ? (
+                  <p className="text-sm text-adc-muted">
+                    Contato: {selected.contactEmail}
+                  </p>
+                ) : null}
                 <p className="text-sm text-adc-muted">
                   {selected.department?.name || "Sem departamento"}
                   {selected.phone ? ` · ${selected.phone}` : ""}
@@ -592,12 +665,23 @@ export default function EmployeesPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      openAssign(selected);
+                      setDetailOpen(false);
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-adc-border px-4 py-2 text-sm font-semibold text-adc-navy"
+                  >
+                    <Link2 size={16} />
+                    Vincular produtos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       openEdit(selected);
                       setDetailOpen(false);
                     }}
                     className="btn-primary"
                   >
-                    Editar / vincular produtos
+                    Editar
                   </button>
                 </>
               ) : (
@@ -623,7 +707,7 @@ export default function EmployeesPage() {
         onClose={closeForm}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="Nome">
+          <Field label="Nome" required>
             <input
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
@@ -631,15 +715,45 @@ export default function EmployeesPage() {
               required
             />
           </Field>
-          <Field label="E-mail">
+          <Field
+            label="E-mail (login)"
+            required={!form.id}
+            hint={
+              form.id
+                ? "O e-mail de login não pode ser alterado após o cadastro."
+                : undefined
+            }
+          >
             <input
               type="email"
               value={form.email}
               onChange={(event) => setForm({ ...form, email: event.target.value })}
               className="input"
               required
+              readOnly={!!form.id}
+              disabled={!!form.id}
             />
           </Field>
+          <Field
+            label="E-mail de contato"
+            hint="Opcional. Pode ser diferente do e-mail de login."
+          >
+            <input
+              type="email"
+              value={form.contactEmail}
+              onChange={(event) =>
+                setForm({ ...form, contactEmail: event.target.value })
+              }
+              className="input"
+            />
+          </Field>
+          {!form.id ? (
+            <p className="rounded-xl border border-adc-border bg-background/60 px-3 py-2.5 text-sm text-adc-muted">
+              A conta recebe a{" "}
+              <span className="font-medium text-adc-navy">senha inicial padrão</span>
+              . No primeiro acesso, o usuário será obrigado a alterá-la.
+            </p>
+          ) : null}
           <Field label="Telefone">
             <input
               value={form.phone}
@@ -663,7 +777,10 @@ export default function EmployeesPage() {
               ))}
             </select>
           </Field>
-          <Field label="Foto">
+          <Field
+            label="Foto"
+            hint="JPG, PNG, WEBP ou GIF até 5 MB. Em produção (Vercel) a foto é armazenada inline no banco."
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <EmployeeAvatar
                 name={form.name || "Funcionário"}
@@ -695,11 +812,50 @@ export default function EmployeesPage() {
                 )}
               </div>
             </div>
-            <p className="mt-2 text-xs text-adc-muted">
-              JPG, PNG, WEBP ou GIF até 5 MB. Arquivo salvo em fotos-funcionarios.
-            </p>
           </Field>
 
+          <label className="flex items-start gap-2 text-sm text-adc-navy">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={form.active}
+              onChange={(event) =>
+                setForm({ ...form, active: event.target.checked })
+              }
+            />
+            <span>
+              Funcionário ativo
+              <span className="mt-0.5 block text-xs text-adc-muted">
+                Desmarcar bloqueia o login deste usuário na plataforma.
+              </span>
+            </span>
+          </label>
+
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={closeForm}
+              className="rounded-xl border border-adc-border px-4 py-2 text-sm font-semibold text-adc-navy"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary disabled:opacity-60"
+            >
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={assignOpen && !!assignEmployee}
+        title={`Vincular produtos · ${assignEmployee?.name ?? ""}`}
+        onClose={closeAssign}
+      >
+        <form onSubmit={handleAssignSubmit} className="space-y-4">
           <div className="rounded-2xl border border-adc-border bg-background/60 p-3 sm:p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -813,7 +969,7 @@ export default function EmployeesPage() {
                             ) : (
                               <>
                                 Sem estoque disponível
-                                {form.id && requestAllowed ? (
+                                {assignEmployee && requestAllowed ? (
                                   <span className="text-adc-muted">
                                     {" "}
                                     · peça reposição
@@ -838,7 +994,7 @@ export default function EmployeesPage() {
                           </button>
                         ) : null}
                       </div>
-                      {outOfStock && form.id && requestAllowed ? (
+                      {outOfStock && assignEmployee && requestAllowed ? (
                         <button
                           type="button"
                           onClick={() => void quickOrder(product)}
@@ -872,21 +1028,10 @@ export default function EmployeesPage() {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-adc-navy">
-            <input
-              type="checkbox"
-              checked={form.active}
-              onChange={(event) =>
-                setForm({ ...form, active: event.target.checked })
-              }
-            />
-            Funcionário ativo
-          </label>
-
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={closeForm}
+              onClick={closeAssign}
               className="rounded-xl border border-adc-border px-4 py-2 text-sm font-semibold text-adc-navy"
             >
               Cancelar
@@ -896,7 +1041,7 @@ export default function EmployeesPage() {
               disabled={saving}
               className="btn-primary disabled:opacity-60"
             >
-              {saving ? "Salvando..." : "Salvar"}
+              {saving ? "Salvando..." : "Salvar vínculos"}
             </button>
           </div>
         </form>
@@ -912,14 +1057,5 @@ export default function EmployeesPage() {
         onConfirm={() => void confirmDelete()}
       />
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="text-sm font-medium text-adc-navy">{label}</span>
-      <div className="mt-1">{children}</div>
-    </label>
   );
 }

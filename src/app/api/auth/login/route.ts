@@ -30,12 +30,14 @@ export async function POST(request: Request) {
         name: user.name,
         active: true,
         departmentId: user.departmentId,
+        userId: user.id,
       },
       create: {
         name: user.name,
         email: user.email,
         active: true,
         departmentId: user.departmentId,
+        userId: user.id,
       },
     });
 
@@ -53,6 +55,7 @@ export async function POST(request: Request) {
         name: user.name,
         email: user.email,
         role: user.role,
+        mustChangePassword: user.mustChangePassword,
       },
     });
   } catch (err) {

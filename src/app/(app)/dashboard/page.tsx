@@ -3,26 +3,49 @@
 import { RefreshButton } from "@/components/refresh-button";
 import { ACTIVITY_TYPE_LABELS } from "@/lib/activity-labels";
 import { apiFetch } from "@/lib/client/api";
+import { getSession } from "@/lib/client/session";
 import type { ActivityType } from "@generated/prisma/client";
-import { AlertTriangle, Building2, History, Package, Users } from "lucide-react";
+import { AlertTriangle, Building2, Package, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+
+function greetingForHour(hour: number) {
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function firstName(name: string | undefined) {
+  if (!name?.trim()) return "usuário";
+  return name.trim().split(/\s+/)[0] ?? "usuário";
+}
 
 type DashboardData = {
   counts: {
     products: number;
     employees: number;
-    history: number;
     departments: number;
     lowStock: number;
+    malfunctions: number;
   };
   lowStockProducts: Array<{
     id: string;
     name: string;
     code: string;
     quantity: number;
+    availableQuantity: number;
     minStock: number;
+  }>;
+  openMalfunctions: Array<{
+    id: string;
+    description: string;
+    createdAt: string;
+    product: {
+      id: string;
+      name: string;
+      code: string;
+    };
   }>;
   recentEvents: Array<{
     id: string;
@@ -36,6 +59,8 @@ type DashboardData = {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("");
+  const greeting = greetingForHour(new Date().getHours());
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -53,6 +78,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    setUserName(getSession()?.user.name ?? "");
     const timeout = window.setTimeout(() => void loadDashboard(), 0);
     return () => window.clearTimeout(timeout);
   }, [loadDashboard]);
@@ -80,13 +106,6 @@ export default function DashboardPage() {
       tone: "bg-adc-blue/10 text-adc-blue",
     },
     {
-      label: "Histórico",
-      value: data?.counts.history ?? 0,
-      icon: History,
-      href: "/history",
-      tone: "bg-violet-500/10 text-violet-700",
-    },
-    {
       label: "Estoque baixo",
       value: data?.counts.lowStock ?? 0,
       icon: AlertTriangle,
@@ -99,7 +118,9 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="adc-eyebrow">ADC Benefícios</p>
+          <p className="adc-eyebrow">
+            {greeting}, {firstName(userName)}
+          </p>
           <h1 className="text-2xl font-semibold text-adc-navy sm:text-3xl">
             Dashboard
           </h1>
@@ -110,7 +131,7 @@ export default function DashboardPage() {
         <RefreshButton onClick={() => void loadDashboard()} loading={loading} />
       </section>
 
-      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;
 
@@ -140,9 +161,17 @@ export default function DashboardPage() {
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="adc-panel p-5">
-          <h2 className="font-semibold text-adc-navy">
-            Produtos com estoque baixo
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-adc-navy">
+              Produtos com estoque baixo
+            </h2>
+            <Link
+              href="/products"
+              className="text-xs font-medium text-adc-blue hover:underline"
+            >
+              Ver produtos
+            </Link>
+          </div>
           <div className="mt-4 space-y-3">
             {loading ? (
               <p className="text-sm text-adc-muted">Carregando...</p>
@@ -157,7 +186,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-adc-muted">{product.code}</p>
                   </div>
                   <span className="text-sm font-semibold text-adc-danger-text">
-                    {product.quantity} / mín. {product.minStock}
+                    {product.availableQuantity} disp. / mín. {product.minStock}
                   </span>
                 </div>
               ))
@@ -170,6 +199,51 @@ export default function DashboardPage() {
         </div>
 
         <div className="adc-panel p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-adc-navy">
+              Produtos com mal funcionamento
+            </h2>
+            <Link
+              href="/malfunctions"
+              className="text-xs font-medium text-adc-blue hover:underline"
+            >
+              Ver tudo
+            </Link>
+          </div>
+          <div className="mt-4 space-y-3">
+            {loading ? (
+              <p className="text-sm text-adc-muted">Carregando...</p>
+            ) : data?.openMalfunctions.length ? (
+              data.openMalfunctions.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 rounded-xl bg-amber-500/10 px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-adc-navy">
+                      {item.product.name}
+                    </p>
+                    <p className="text-xs text-adc-muted">{item.product.code}</p>
+                    <p className="mt-1 truncate text-xs text-adc-muted">
+                      {item.description}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs font-semibold text-amber-800 dark:text-amber-200">
+                    {new Intl.DateTimeFormat("pt-BR", {
+                      dateStyle: "short",
+                    }).format(new Date(item.createdAt))}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-adc-muted">
+                Nenhum mal funcionamento aberto.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="adc-panel p-5 xl:col-span-2">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-semibold text-adc-navy">Histórico recente</h2>
             <Link

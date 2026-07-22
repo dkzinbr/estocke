@@ -6,9 +6,11 @@ export const employeeListSelect = {
   id: true,
   name: true,
   email: true,
+  contactEmail: true,
   phone: true,
   photoUrl: true,
   departmentId: true,
+  userId: true,
   active: true,
   createdAt: true,
   updatedAt: true,
@@ -48,6 +50,28 @@ export const productAssignmentInclude = {
       },
     },
   },
+  parentLinks: {
+    select: {
+      id: true,
+      quantity: true,
+      parentId: true,
+      childId: true,
+    },
+  },
+  childLinks: {
+    orderBy: { child: { name: "asc" as const } },
+    include: {
+      child: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          quantity: true,
+          active: true,
+        },
+      },
+    },
+  },
 } satisfies Prisma.ProductInclude;
 
 export type AssignmentInput = {
@@ -56,6 +80,21 @@ export type AssignmentInput = {
 };
 
 type Tx = Prisma.TransactionClient;
+
+async function linkedAsChildQuantity(
+  tx: Tx,
+  productId: string,
+  excludeLinkId?: string,
+) {
+  const linked = await tx.productLink.aggregate({
+    where: {
+      childId: productId,
+      ...(excludeLinkId ? { id: { not: excludeLinkId } } : {}),
+    },
+    _sum: { quantity: true },
+  });
+  return linked._sum.quantity ?? 0;
+}
 
 export async function syncEmployeeAssignments(
   tx: Tx,
@@ -103,9 +142,13 @@ export async function syncEmployeeAssignments(
       _sum: { quantity: true },
     });
     const assignedOthers = others._sum.quantity ?? 0;
+    const linkedQty = await linkedAsChildQuantity(tx, item.productId);
 
-    if (assignedOthers + item.quantity > product.quantity) {
-      const available = Math.max(product.quantity - assignedOthers, 0);
+    if (assignedOthers + linkedQty + item.quantity > product.quantity) {
+      const available = Math.max(
+        product.quantity - assignedOthers - linkedQty,
+        0,
+      );
       throw new ApiError(
         `Estoque insuficiente para "${product.name}". Disponível: ${available} de ${product.quantity}.`,
         400,
@@ -148,24 +191,36 @@ export async function assertProductQuantityAllowsAssignments(
     _sum: { quantity: true },
   });
   const totalAssigned = assigned._sum.quantity ?? 0;
+  const totalLinked = await linkedAsChildQuantity(tx, productId);
+  const reserved = totalAssigned + totalLinked;
 
-  if (totalAssigned > nextQuantity) {
+  if (reserved > nextQuantity) {
     throw new ApiError(
-      `Não é possível reduzir o estoque para ${nextQuantity}: já há ${totalAssigned} unidade(s) vinculada(s).`,
+      `Não é possível reduzir o estoque para ${nextQuantity}: já há ${reserved} unidade(s) vinculada(s) (funcionários e/ou componentes).`,
       400,
     );
   }
 }
 
 export function withAssignedQuantity<
-  T extends { quantity: number; assignments?: { quantity: number }[] },
+  T extends {
+    quantity: number;
+    assignments?: { quantity: number }[];
+    parentLinks?: { quantity: number }[];
+  },
 >(product: T) {
   const assignedQuantity =
     product.assignments?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
+  const linkedQuantity =
+    product.parentLinks?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
 
   return {
     ...product,
     assignedQuantity,
-    availableQuantity: Math.max(product.quantity - assignedQuantity, 0),
+    linkedQuantity,
+    availableQuantity: Math.max(
+      product.quantity - assignedQuantity - linkedQuantity,
+      0,
+    ),
   };
 }

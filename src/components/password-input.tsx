@@ -10,15 +10,23 @@ type PasswordInputProps = Omit<
   label: string;
 };
 
-export function PasswordInput({ label, className = "", ...props }: PasswordInputProps) {
+export function PasswordInput({ label, className = "", required, ...props }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
 
   return (
     <label className="block">
-      <span className="text-sm font-medium text-adc-navy">{label}</span>
+      <span className="text-sm font-medium text-adc-navy">
+        {label}
+        {required ? (
+          <span className="ml-0.5 text-adc-danger-text" aria-hidden>
+            *
+          </span>
+        ) : null}
+      </span>
       <div className="relative mt-2">
         <input
           {...props}
+          required={required}
           type={visible ? "text" : "password"}
           className={`input w-full pr-11 ${className}`.trim()}
         />

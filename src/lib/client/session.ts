@@ -5,6 +5,7 @@ export type SessionUser = {
   name: string;
   email: string;
   role: AppRole;
+  mustChangePassword?: boolean;
 };
 
 export type Session = {

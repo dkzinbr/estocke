@@ -1,5 +1,6 @@
 "use client";
 
+import { ForceChangePasswordModal } from "@/components/force-change-password-modal";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   clearSession,
@@ -15,9 +16,11 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Menu,
   Package,
   Shield,
   Users,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -57,10 +60,28 @@ const adminNavItems = [
   },
 ];
 
+function firstName(name: string | undefined) {
+  if (!name?.trim()) return "usuário";
+  return name.trim().split(/\s+/)[0] ?? "usuário";
+}
+
+function initials(name: string | undefined) {
+  if (!name?.trim()) return "?";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [session, setSessionState] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   const admin = isAdminRole(session?.user.role);
   const canSeeOps = canViewAllOperations(session?.user.role);
@@ -70,6 +91,37 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     if (admin) items.push(...adminNavItems);
     return items;
   }, [admin, canSeeOps]);
+
+  const displayName = session?.user.name ?? "";
+  const roleLabel =
+    session?.user.role && session.user.role in ROLE_LABELS
+      ? ROLE_LABELS[session.user.role]
+      : session?.user.email;
+
+  useEffect(() => {
+    setMenuOpen(false);
+    setAccountOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen && !accountOpen) return;
+
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const el = target instanceof Element ? target : target.parentElement;
+      if (el?.closest("[data-mobile-menu], [data-account-menu]")) return;
+      setMenuOpen(false);
+      setAccountOpen(false);
+    }
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [menuOpen, accountOpen]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -81,6 +133,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       }
 
       setSessionState(current);
+      setMustChangePassword(!!current.user.mustChangePassword);
       setReady(true);
     }, 0);
 
@@ -130,6 +183,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-adc-navy">
+      <ForceChangePasswordModal
+        open={mustChangePassword}
+        onCompleted={() => setMustChangePassword(false)}
+      />
+
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-white/10 bg-adc-sidebar p-5 text-white lg:block">
         <Link href="/dashboard" className="flex items-center gap-3">
           <Image
@@ -166,92 +224,120 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-
-        <div className="absolute bottom-5 left-5 right-5 space-y-3">
-          <div className="flex justify-start">
-            <ThemeToggle className="border-white/15 bg-white/10 text-white hover:bg-white/15" />
-          </div>
-          <div className="rounded-2xl bg-white/5 p-3 text-xs text-white/55 ring-1 ring-white/10">
-            Conectando você às melhores soluções de saúde e odontologia.
-          </div>
-        </div>
       </aside>
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-10 border-b border-adc-border bg-adc-surface/90 safe-px py-3 backdrop-blur lg:px-8">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3 lg:hidden">
-              <Image
-                src="/adc-logo.png"
-                alt="ADC Benefícios"
-                width={32}
-                height={32}
-                className="rounded-lg"
-              />
-              <div className="min-w-0">
+        <header className="sticky top-0 z-30 border-b border-adc-border bg-adc-surface/90 safe-px py-3 backdrop-blur lg:px-8">
+          <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3">
+            {/* Mobile: hamburger + brand — desktop usa a sidebar */}
+            <div
+              className="relative flex min-w-0 items-center gap-2 lg:hidden"
+              data-mobile-menu
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setAccountOpen(false);
+                  setMenuOpen((open) => !open);
+                }}
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-adc-border bg-adc-surface text-adc-navy transition hover:bg-background"
+                aria-label="Abrir menu"
+                aria-expanded={menuOpen}
+              >
+                {menuOpen ? <X size={18} /> : <Menu size={18} />}
+              </button>
+              <div className="flex min-w-0 items-center gap-2">
+                <Image
+                  src="/adc-logo.png"
+                  alt="ADC Benefícios"
+                  width={28}
+                  height={28}
+                  className="rounded-md"
+                />
                 <p className="truncate text-sm font-semibold text-adc-navy">
                   Estocke
                 </p>
-                <p className="truncate text-xs text-adc-muted">ADC Benefícios</p>
               </div>
+
+              {menuOpen ? (
+                <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-56 overflow-hidden rounded-xl border border-adc-border bg-adc-surface py-1 shadow-lg">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMenuOpen(false)}
+                        className={`flex items-center gap-2.5 px-3 py-2 text-sm transition ${
+                          active
+                            ? "bg-adc-blue/10 font-semibold text-adc-blue"
+                            : "text-adc-navy hover:bg-background"
+                        }`}
+                      >
+                        <Icon size={16} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
 
-            <div className="ml-auto flex items-center gap-2 sm:gap-3">
-              <div className="hidden text-right xs:block sm:block">
-                <p className="max-w-[140px] truncate text-sm font-medium text-adc-navy sm:max-w-none">
-                  {session?.user.name}
-                </p>
-                <p className="hidden max-w-[180px] truncate text-xs text-adc-muted sm:block">
-                  {session?.user.role && session.user.role in ROLE_LABELS
-                    ? ROLE_LABELS[session.user.role]
-                    : session?.user.email}
-                </p>
-              </div>
-              <ThemeToggle className="lg:hidden" />
+            {/* Conta — mobile até widescreen */}
+            <div className="relative ml-auto" data-account-menu>
               <button
                 type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center gap-2 rounded-xl border border-adc-border bg-adc-surface px-3 py-2 text-sm font-medium text-adc-navy transition hover:bg-background"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setAccountOpen((open) => !open);
+                }}
+                className="inline-flex max-w-[46vw] items-center gap-1.5 rounded-full border border-adc-border bg-adc-surface py-1 pl-1 pr-2.5 text-left transition hover:bg-background sm:max-w-none sm:gap-2 sm:pr-3"
+                aria-label="Conta"
+                aria-expanded={accountOpen}
               >
-                <LogOut size={16} />
-                <span className="hidden sm:inline">Sair</span>
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#0f3b8a] to-[#4d6aff] text-[10px] font-semibold text-white sm:size-8 sm:text-[11px]">
+                  {initials(displayName)}
+                </span>
+                <span className="min-w-0 truncate text-xs font-semibold text-adc-navy sm:text-sm">
+                  {firstName(displayName)}
+                </span>
               </button>
+
+              {accountOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-52 overflow-hidden rounded-xl border border-adc-border bg-adc-surface py-1 shadow-lg sm:w-56">
+                  <div className="border-b border-adc-border px-3 py-2">
+                    <p className="truncate text-xs font-semibold text-adc-navy sm:text-sm">
+                      {firstName(displayName)}
+                    </p>
+                    <p className="truncate text-[11px] text-adc-muted sm:text-xs">
+                      {roleLabel}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-xs font-medium text-adc-navy sm:text-sm">
+                      Tema
+                    </span>
+                    <ThemeToggle className="size-8 rounded-lg" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-adc-navy transition hover:bg-background sm:text-sm"
+                  >
+                    <LogOut size={14} />
+                    Sair
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </header>
 
-        <main className="safe-px safe-pb px-4 py-4 pb-24 sm:py-6 lg:px-8 lg:pb-8">
-          {children}
+        <main className="safe-px safe-pb px-4 py-4 sm:py-6 lg:px-8 lg:pb-8">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>
-
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-adc-border bg-adc-surface/95 safe-pb backdrop-blur lg:hidden">
-        <div
-          className={`grid gap-1 px-0.5 py-2 ${
-            admin ? "grid-cols-8" : "grid-cols-6"
-          }`}
-        >
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.href;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-[11px] font-medium transition ${
-                  active
-                    ? "bg-adc-blue/10 text-adc-blue"
-                    : "text-adc-muted hover:bg-background hover:text-adc-navy"
-                }`}
-              >
-                <Icon size={18} />
-                <span>{item.short}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </div>
   );
 }

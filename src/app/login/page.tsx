@@ -1,10 +1,10 @@
 "use client";
 
+import { Field } from "@/components/field";
 import { PasswordInput } from "@/components/password-input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getSession, setSession } from "@/lib/client/session";
 import Image from "next/image";
-import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ type LoginResponse = {
     name: string;
     email: string;
     role: "ADMIN" | "SUPERVISOR" | "EMPLOYEE";
+    mustChangePassword?: boolean;
   };
 };
 
@@ -50,7 +51,13 @@ export default function LoginPage() {
         throw new Error("Resposta de login inválida.");
       }
 
-      setSession({ token: data.token, user: data.user });
+      setSession({
+        token: data.token,
+        user: {
+          ...data.user,
+          mustChangePassword: !!data.user.mustChangePassword,
+        },
+      });
       toast.success(`Bem-vindo, ${data.user.name}!`);
       window.location.replace("/dashboard");
     } catch (error) {
@@ -95,20 +102,19 @@ export default function LoginPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5" autoComplete="on">
-          <label className="block">
-            <span className="text-sm font-medium text-adc-navy">E-mail</span>
+          <Field label="E-mail" required>
             <input
               type="email"
               name="email"
               id="login-email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="input mt-2"
+              className="input"
               required
               autoComplete="email"
               inputMode="email"
             />
-          </label>
+          </Field>
 
           <PasswordInput
             label="Senha"
@@ -126,13 +132,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-adc-muted">
-          Não tem uma conta?{" "}
-          <Link
-            href="/register"
-            className="font-semibold text-adc-blue hover:underline"
-          >
-            Criar conta
-          </Link>
+          Contas são criadas pelo administrador na aba Funcionários.
         </p>
       </section>
     </main>

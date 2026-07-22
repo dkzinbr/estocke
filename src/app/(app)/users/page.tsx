@@ -1,11 +1,14 @@
 "use client";
 
+import { ConfirmPhraseModal } from "@/components/confirm-phrase-modal";
+import { Field } from "@/components/field";
+import { Modal } from "@/components/modal";
 import { RefreshButton } from "@/components/refresh-button";
 import { apiFetch, jsonBody } from "@/lib/client/api";
 import { clearSession, getSession } from "@/lib/client/session";
 import { ROLE_LABELS, type AppRole } from "@/lib/roles";
-import { Shield } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { MoreHorizontal, Shield, UserCog, UserX } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 type AppUser = {
@@ -24,11 +27,19 @@ const ROLE_BADGE: Record<AppRole, string> = {
   EMPLOYEE: "bg-adc-mint/10 text-adc-navy",
 };
 
+const ROLE_OPTIONS: AppRole[] = ["ADMIN", "SUPERVISOR", "EMPLOYEE"];
+
 export default function UsersPage() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [menuUserId, setMenuUserId] = useState<string | null>(null);
+  const [roleTarget, setRoleTarget] = useState<AppUser | null>(null);
+  const [selectedRole, setSelectedRole] = useState<AppRole>("EMPLOYEE");
+  const [savingRole, setSavingRole] = useState(false);
+  const [deactivateTarget, setDeactivateTarget] = useState<AppUser | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
   const currentUserId = getSession()?.user.id;
 
   const loadUsers = useCallback(
@@ -64,9 +75,29 @@ export default function UsersPage() {
     return () => window.clearTimeout(timeout);
   }, [loadUsers]);
 
-  async function updateUser(
+  useEffect(() => {
+    if (!menuUserId) return;
+
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const el = target instanceof Element ? target : target.parentElement;
+      if (el?.closest("[data-user-actions]")) return;
+      setMenuUserId(null);
+    }
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [menuUserId]);
+
+  async function applyUserPatch(
     user: AppUser,
     patch: { role?: AppRole; active?: boolean },
+    successMessage: string,
   ) {
     setUpdatingId(user.id);
 
@@ -79,21 +110,88 @@ export default function UsersPage() {
       });
 
       setUsers((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
+        current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
       );
-      toast.success("Usuário atualizado.");
+      toast.success(successMessage);
 
       if (updated.sessionInvalidated) {
         toast.message("Seu cargo mudou. Faça login novamente.");
         clearSession();
         window.location.replace("/login");
       }
+
+      return updated;
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Erro ao atualizar usuário.",
       );
+      throw error;
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  function openRoleModal(user: AppUser) {
+    setMenuUserId(null);
+    setRoleTarget(user);
+    setSelectedRole(user.role);
+  }
+
+  function openDeactivateModal(user: AppUser) {
+    setMenuUserId(null);
+    setDeactivateTarget(user);
+  }
+
+  async function handleRoleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!roleTarget) return;
+    if (selectedRole === roleTarget.role) {
+      setRoleTarget(null);
+      return;
+    }
+
+    setSavingRole(true);
+    try {
+      await applyUserPatch(
+        roleTarget,
+        { role: selectedRole },
+        `Cargo atualizado para ${ROLE_LABELS[selectedRole]}.`,
+      );
+      setRoleTarget(null);
+    } catch {
+      // toast already shown
+    } finally {
+      setSavingRole(false);
+    }
+  }
+
+  async function confirmDeactivate() {
+    if (!deactivateTarget) return;
+    setDeactivating(true);
+    try {
+      await applyUserPatch(
+        deactivateTarget,
+        { active: false },
+        "Usuário desativado. O acesso à plataforma foi bloqueado.",
+      );
+      setDeactivateTarget(null);
+    } catch {
+      // toast already shown
+    } finally {
+      setDeactivating(false);
+    }
+  }
+
+  async function activateUser(user: AppUser) {
+    setMenuUserId(null);
+    try {
+      await applyUserPatch(
+        user,
+        { active: true },
+        "Usuário reativado. O acesso à plataforma foi liberado.",
+      );
+    } catch {
+      // toast already shown
     }
   }
 
@@ -156,6 +254,7 @@ export default function UsersPage() {
               ) : users.length ? (
                 users.map((user) => {
                   const busy = updatingId === user.id;
+                  const menuOpen = menuUserId === user.id;
 
                   return (
                     <tr key={user.id}>
@@ -185,31 +284,56 @@ export default function UsersPage() {
                         {user.active ? "Ativo" : "Inativo"}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <select
-                            value={user.role}
-                            disabled={busy}
-                            onChange={(event) =>
-                              void updateUser(user, {
-                                role: event.target.value as AppRole,
-                              })
-                            }
-                            className="input w-auto min-w-[160px] py-1.5 text-sm"
-                          >
-                            <option value="ADMIN">Administrador</option>
-                            <option value="SUPERVISOR">Supervisão</option>
-                            <option value="EMPLOYEE">Funcionário</option>
-                          </select>
+                        <div
+                          className="relative flex justify-end"
+                          data-user-actions
+                        >
                           <button
                             type="button"
                             disabled={busy}
                             onClick={() =>
-                              void updateUser(user, { active: !user.active })
+                              setMenuUserId((current) =>
+                                current === user.id ? null : user.id,
+                              )
                             }
-                            className="rounded-xl border border-adc-border px-3 py-1.5 text-sm font-semibold text-adc-navy disabled:opacity-60"
+                            className="inline-flex size-9 items-center justify-center rounded-xl border border-adc-border text-adc-navy transition hover:bg-background disabled:opacity-60"
+                            aria-label={`Ações de ${user.name}`}
+                            aria-expanded={menuOpen}
                           >
-                            {user.active ? "Desativar" : "Ativar"}
+                            <MoreHorizontal size={18} />
                           </button>
+
+                          {menuOpen ? (
+                            <div className="absolute right-0 top-[calc(100%+0.35rem)] z-20 w-48 overflow-hidden rounded-xl border border-adc-border bg-adc-surface py-1 shadow-lg">
+                              <button
+                                type="button"
+                                onClick={() => openRoleModal(user)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-adc-navy transition hover:bg-background"
+                              >
+                                <UserCog size={14} />
+                                Definir cargo
+                              </button>
+                              {user.active ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openDeactivateModal(user)}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition hover:bg-adc-danger-bg"
+                                >
+                                  <UserX size={14} />
+                                  Desativar usuário
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => void activateUser(user)}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-adc-navy transition hover:bg-background"
+                                >
+                                  <UserCog size={14} />
+                                  Ativar usuário
+                                </button>
+                              )}
+                            </div>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -229,6 +353,72 @@ export default function UsersPage() {
           </table>
         </div>
       </section>
+
+      <Modal
+        open={!!roleTarget}
+        title="Definir cargo"
+        onClose={() => {
+          if (!savingRole) setRoleTarget(null);
+        }}
+      >
+        <form onSubmit={handleRoleSubmit} className="space-y-4">
+          <p className="text-sm text-adc-muted">
+            Defina o cargo de{" "}
+            <span className="font-medium text-adc-navy">
+              {roleTarget?.name}
+            </span>
+            .
+          </p>
+
+          <Field label="Cargo" required>
+            <select
+              value={selectedRole}
+              onChange={(event) =>
+                setSelectedRole(event.target.value as AppRole)
+              }
+              className="input"
+              disabled={savingRole}
+            >
+              {ROLE_OPTIONS.map((role) => (
+                <option key={role} value={role}>
+                  {ROLE_LABELS[role]}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setRoleTarget(null)}
+              disabled={savingRole}
+              className="rounded-xl border border-adc-border px-4 py-2 text-sm font-semibold text-adc-navy disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={savingRole}
+              className="btn-primary disabled:opacity-60"
+            >
+              {savingRole ? "Salvando..." : "Salvar cargo"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmPhraseModal
+        open={!!deactivateTarget}
+        title="Desativar usuário"
+        phrase="desativar"
+        confirmLabel="Desativar usuário"
+        confirming={deactivating}
+        description={`Desativar "${deactivateTarget?.name}" bloqueia o login na plataforma. O funcionário vinculado também será desativado.`}
+        onCancel={() => {
+          if (!deactivating) setDeactivateTarget(null);
+        }}
+        onConfirm={() => void confirmDeactivate()}
+      />
     </div>
   );
 }

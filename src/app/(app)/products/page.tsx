@@ -1,6 +1,7 @@
 "use client";
 
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { Field } from "@/components/field";
 import { Modal } from "@/components/modal";
 import { RefreshButton } from "@/components/refresh-button";
 import { apiFetch, jsonBody } from "@/lib/client/api";
@@ -13,9 +14,24 @@ import {
   type StockStatus,
 } from "@/lib/product-status";
 import { isAdminRole } from "@/lib/roles";
-import { Edit2, PackagePlus, Trash2 } from "lucide-react";
+import { Edit2, Link2, PackagePlus, Trash2 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+
+type ProductLink = {
+  id: string;
+  parentId: string;
+  childId: string;
+  quantity: number;
+  note: string | null;
+  child: {
+    id: string;
+    name: string;
+    code: string;
+    quantity: number;
+    active: boolean;
+  };
+};
 
 type Product = {
   id: string;
@@ -26,9 +42,11 @@ type Product = {
   minStock: number;
   active: boolean;
   assignedQuantity: number;
+  linkedQuantity?: number;
   availableQuantity: number;
   hasOpenMalfunction?: boolean;
   hasOpenRequest?: boolean;
+  childLinks?: ProductLink[];
 };
 
 type ProductForm = {
@@ -58,6 +76,11 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [childLinks, setChildLinks] = useState<ProductLink[]>([]);
+  const [linkChildId, setLinkChildId] = useState("");
+  const [linkQuantity, setLinkQuantity] = useState("1");
+  const [linkNote, setLinkNote] = useState("");
+  const [linking, setLinking] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -99,12 +122,38 @@ export default function ProductsPage() {
     );
   }, [products, stockFilter]);
 
+  const linkableChildren = useMemo(() => {
+    if (!form.id) return [];
+    const linkedIds = new Set(childLinks.map((link) => link.childId));
+    return products.filter(
+      (product) =>
+        product.id !== form.id &&
+        product.active !== false &&
+        !linkedIds.has(product.id),
+    );
+  }, [childLinks, form.id, products]);
+
+  async function loadLinks(productId: string) {
+    try {
+      const links = await apiFetch<ProductLink[]>(
+        `/api/products/${productId}/links`,
+      );
+      setChildLinks(links);
+    } catch {
+      setChildLinks([]);
+    }
+  }
+
   function openCreate() {
     setForm(emptyForm);
+    setChildLinks([]);
+    setLinkChildId("");
+    setLinkQuantity("1");
+    setLinkNote("");
     setModalOpen(true);
   }
 
-  function openEdit(product: Product) {
+  async function openEdit(product: Product) {
     setForm({
       id: product.id,
       name: product.name,
@@ -113,12 +162,20 @@ export default function ProductsPage() {
       quantity: String(product.quantity),
       minStock: String(product.minStock),
     });
+    setLinkChildId("");
+    setLinkQuantity("1");
+    setLinkNote("");
     setModalOpen(true);
+    await loadLinks(product.id);
   }
 
   function closeModal() {
     setModalOpen(false);
     setForm(emptyForm);
+    setChildLinks([]);
+    setLinkChildId("");
+    setLinkQuantity("1");
+    setLinkNote("");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -151,6 +208,51 @@ export default function ProductsPage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAddLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!form.id || !linkChildId) return;
+    setLinking(true);
+
+    try {
+      await apiFetch(`/api/products/${form.id}/links`, {
+        method: "POST",
+        body: jsonBody({
+          childId: linkChildId,
+          quantity: Number(linkQuantity),
+          note: linkNote || null,
+        }),
+      });
+      toast.success("Componente vinculado.");
+      setLinkChildId("");
+      setLinkQuantity("1");
+      setLinkNote("");
+      await Promise.all([loadLinks(form.id), loadProducts()]);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao vincular componente.",
+      );
+    } finally {
+      setLinking(false);
+    }
+  }
+
+  async function removeLink(linkId: string) {
+    if (!form.id) return;
+    try {
+      await apiFetch(`/api/products/${form.id}/links/${linkId}`, {
+        method: "DELETE",
+      });
+      toast.success("Componente desvinculado.");
+      await Promise.all([loadLinks(form.id), loadProducts()]);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao desvincular componente.",
+      );
     }
   }
 
@@ -301,7 +403,7 @@ export default function ProductsPage() {
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => openEdit(product)}
+                              onClick={() => void openEdit(product)}
                               className="rounded-lg border border-adc-border p-2 text-adc-muted hover:bg-background"
                               aria-label="Editar produto"
                             >
@@ -342,7 +444,7 @@ export default function ProductsPage() {
         onClose={closeModal}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="Nome">
+          <Field label="Nome" required>
             <input
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
@@ -350,7 +452,7 @@ export default function ProductsPage() {
               required
             />
           </Field>
-          <Field label="Código">
+          <Field label="Código" required>
             <input
               value={form.code}
               onChange={(event) => setForm({ ...form, code: event.target.value })}
@@ -379,7 +481,10 @@ export default function ProductsPage() {
                 className="input"
               />
             </Field>
-            <Field label="Mín.">
+            <Field
+              label="Mínimo disponível"
+              hint="Conta unidades ainda disponíveis (não atribuídas a funcionários nem vinculadas como componente)."
+            >
               <input
                 type="number"
                 min="0"
@@ -398,7 +503,7 @@ export default function ProductsPage() {
               onClick={closeModal}
               className="rounded-xl border border-adc-border px-4 py-2 text-sm font-semibold text-adc-navy"
             >
-              Cancelar
+              {form.id ? "Fechar" : "Cancelar"}
             </button>
             <button
               type="submit"
@@ -409,6 +514,100 @@ export default function ProductsPage() {
             </button>
           </div>
         </form>
+
+        {isAdmin && form.id ? (
+          <div className="mt-6 space-y-4 border-t border-adc-border pt-5">
+            <div>
+              <p className="inline-flex items-center gap-2 text-sm font-semibold text-adc-navy">
+                <Link2 size={16} />
+                Componentes vinculados
+              </p>
+              <p className="mt-1 text-xs text-adc-muted">
+                Vincule produtos-filhos usados neste item. A quantidade reduz o
+                disponível do componente.
+              </p>
+            </div>
+
+            {childLinks.length ? (
+              <ul className="space-y-2">
+                {childLinks.map((link) => (
+                  <li
+                    key={link.id}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-adc-border bg-background px-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-adc-navy">
+                        {link.child.name} × {link.quantity}
+                      </p>
+                      <p className="text-xs text-adc-muted">
+                        {link.child.code}
+                        {link.note ? ` · ${link.note}` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void removeLink(link.id)}
+                      className="rounded-lg border border-adc-border p-2 text-red-600 hover:bg-adc-danger-bg"
+                      aria-label={`Remover ${link.child.name}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-adc-muted">
+                Nenhum componente vinculado.
+              </p>
+            )}
+
+            <form onSubmit={handleAddLink} className="space-y-3">
+              <Field label="Componente" required>
+                <select
+                  value={linkChildId}
+                  onChange={(event) => setLinkChildId(event.target.value)}
+                  className="input"
+                  required
+                >
+                  <option value="">Selecione</option>
+                  {linkableChildren.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} ({product.code}) · disp.{" "}
+                      {product.availableQuantity}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Quantidade" required>
+                  <input
+                    type="number"
+                    min="1"
+                    value={linkQuantity}
+                    onChange={(event) => setLinkQuantity(event.target.value)}
+                    className="input"
+                    required
+                  />
+                </Field>
+                <Field label="Observação">
+                  <input
+                    value={linkNote}
+                    onChange={(event) => setLinkNote(event.target.value)}
+                    className="input"
+                    placeholder="Opcional"
+                  />
+                </Field>
+              </div>
+              <button
+                type="submit"
+                disabled={linking || !linkChildId}
+                className="btn-primary w-full disabled:opacity-60 sm:w-auto"
+              >
+                {linking ? "Vinculando..." : "Vincular componente"}
+              </button>
+            </form>
+          </div>
+        ) : null}
       </Modal>
 
       <ConfirmDeleteModal
@@ -421,20 +620,5 @@ export default function ProductsPage() {
         onConfirm={() => void confirmDelete()}
       />
     </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="text-sm font-medium text-adc-navy">{label}</span>
-      <div className="mt-1">{children}</div>
-    </label>
   );
 }

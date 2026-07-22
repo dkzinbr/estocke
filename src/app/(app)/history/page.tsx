@@ -83,12 +83,12 @@ export default function HistoryPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar resumo, detalhe ou autor"
-              className="input w-full sm:flex-1"
+              className="input w-full min-w-0 sm:flex-1"
             />
             <select
               value={type}
               onChange={(event) => setType(event.target.value)}
-              className="input w-full sm:min-w-[220px] sm:w-auto"
+              className="input w-full min-w-0 sm:flex-1"
             >
               <option value="">Todos os tipos</option>
               {TYPE_OPTIONS.map(([value, label]) => (

@@ -23,7 +23,7 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
 
     const existing = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, role: true, active: true },
+      select: { id: true, role: true, active: true, email: true },
     });
 
     if (!existing) return error("Usuário não encontrado.", 404);
@@ -47,26 +47,45 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
       }
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: {
-        ...(data.role !== undefined ? { role: data.role } : {}),
-        ...(data.active !== undefined ? { active: data.active } : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        active: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id },
+        data: {
+          ...(data.role !== undefined ? { role: data.role } : {}),
+          ...(data.active !== undefined ? { active: data.active } : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      // Espelha o status no funcionário vinculado (acesso isolado 1:1).
+      if (data.active !== undefined) {
+        await tx.employee.updateMany({
+          where: {
+            OR: [{ userId: updated.id }, { email: existing.email }],
+          },
+          data: { active: data.active },
+        });
+      }
+
+      return updated;
     });
 
     await logActivity(prisma, {
       type: "USER_UPDATED",
-      summary: `Usuário atualizado: ${user.name}`,
+      summary:
+        data.active === false
+          ? `Usuário desativado (acesso bloqueado): ${user.name}`
+          : data.active === true && existing.active === false
+            ? `Usuário reativado (acesso liberado): ${user.name}`
+            : `Usuário atualizado: ${user.name}`,
       actor: actorFromUser(admin),
       entityType: "user",
       entityId: user.id,

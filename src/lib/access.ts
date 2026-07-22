@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@generated/prisma/client";
 
 export async function findEmployeeForUser(user: AuthUser) {
+  const byUserId = await prisma.employee.findUnique({
+    where: { userId: user.id },
+  });
+  if (byUserId) return byUserId;
+
   return prisma.employee.findUnique({
     where: { email: user.email },
   });

@@ -18,6 +18,8 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   MALFUNCTION_DELETED: "Mal funcionamento excluído",
   ASSIGNMENT_ACQUIRED: "Aquisição / transferência",
   MALFUNCTION_MOVEMENT: "Saída por mal funcionamento",
+  PRODUCT_LINKED: "Produtos vinculados",
+  PRODUCT_UNLINKED: "Vínculo de produtos removido",
   USER_UPDATED: "Usuário atualizado",
   USER_REGISTERED: "Conta criada",
   STOCK_ADJUSTED: "Ajuste de estoque",

@@ -165,14 +165,3 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
     return handleApiError(err);
   }
 }
-
-export async function DELETE(request: Request, ctx: IdRouteContext) {
-  try {
-    await requireAuth(request, { roles: [Role.ADMIN] });
-    const { id } = await ctx.params;
-    await prisma.productRequest.delete({ where: { id } });
-    return new Response(null, { status: 204 });
-  } catch (err) {
-    return handleApiError(err);
-  }
-}

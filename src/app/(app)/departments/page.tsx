@@ -1,12 +1,14 @@
 "use client";
 
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { ConfirmPhraseModal } from "@/components/confirm-phrase-modal";
+import { Field } from "@/components/field";
 import { Modal } from "@/components/modal";
 import { RefreshButton } from "@/components/refresh-button";
 import { apiFetch, jsonBody } from "@/lib/client/api";
 import { getSession } from "@/lib/client/session";
-import { Plus, Trash2 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Plus, Trash2, Users } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type Department = {
@@ -15,6 +17,27 @@ type Department = {
   active: boolean;
   createdAt: string;
   _count?: { users: number; employees: number };
+};
+
+type DepartmentMember = {
+  id: string;
+  name: string;
+  email: string;
+  contactEmail: string | null;
+  phone: string | null;
+  active: boolean;
+  userId: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    active: boolean;
+    role: string;
+  } | null;
+};
+
+type DepartmentDetail = Department & {
+  employees: DepartmentMember[];
 };
 
 export default function DepartmentsPage() {
@@ -26,6 +49,16 @@ export default function DepartmentsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deactivateTarget, setDeactivateTarget] = useState<Department | null>(
+    null,
+  );
+  const [toggling, setToggling] = useState(false);
+  const [detail, setDetail] = useState<DepartmentDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [memberTargets, setMemberTargets] = useState<Record<string, string>>(
+    {},
+  );
+  const [savingMembers, setSavingMembers] = useState(false);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -57,9 +90,48 @@ export default function DepartmentsPage() {
     return () => window.clearTimeout(timeout);
   }, [loadItems]);
 
+  const otherDepartments = useMemo(
+    () =>
+      items.filter(
+        (item) => item.id !== detail?.id && item.active,
+      ),
+    [items, detail?.id],
+  );
+
   function openCreate() {
     setName("");
     setModalOpen(true);
+  }
+
+  async function openDetail(item: Department) {
+    setDetailLoading(true);
+    setDetail(null);
+    setMemberTargets({});
+    try {
+      const data = await apiFetch<DepartmentDetail>(
+        `/api/departments/${item.id}`,
+      );
+      setDetail(data);
+      const targets: Record<string, string> = {};
+      for (const member of data.employees) {
+        targets[member.id] = data.id;
+      }
+      setMemberTargets(targets);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao carregar departamento.",
+      );
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function closeDetail() {
+    if (savingMembers) return;
+    setDetail(null);
+    setMemberTargets({});
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -82,18 +154,59 @@ export default function DepartmentsPage() {
     }
   }
 
-  async function toggleActive(item: Department) {
+  function requestToggleActive(item: Department) {
+    if (item.active) {
+      setDeactivateTarget(item);
+      return;
+    }
+    void activateDepartment(item);
+  }
+
+  async function activateDepartment(item: Department) {
+    setToggling(true);
     try {
       await apiFetch(`/api/departments/${item.id}`, {
         method: "PATCH",
-        body: jsonBody({ active: !item.active }),
+        body: jsonBody({ active: true }),
       });
-      toast.success(item.active ? "Departamento desativado." : "Departamento ativado.");
+      toast.success(
+        "Departamento ativado. Usuários e funcionários do setor foram reativados.",
+      );
       await loadItems();
+      if (detail?.id === item.id) {
+        await openDetail(item);
+      }
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Erro ao atualizar.",
+        error instanceof Error ? error.message : "Erro ao ativar.",
       );
+    } finally {
+      setToggling(false);
+    }
+  }
+
+  async function confirmDeactivate() {
+    if (!deactivateTarget) return;
+    setToggling(true);
+    try {
+      await apiFetch(`/api/departments/${deactivateTarget.id}`, {
+        method: "PATCH",
+        body: jsonBody({ active: false }),
+      });
+      toast.success(
+        "Departamento desativado. Usuários do setor não poderão mais entrar até a reativação.",
+      );
+      setDeactivateTarget(null);
+      await loadItems();
+      if (detail?.id === deactivateTarget.id) {
+        closeDetail();
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao desativar.",
+      );
+    } finally {
+      setToggling(false);
     }
   }
 
@@ -116,6 +229,65 @@ export default function DepartmentsPage() {
     }
   }
 
+  async function saveMemberMoves() {
+    if (!detail) return;
+
+    const moves = detail.employees
+      .map((member) => {
+        const nextId = memberTargets[member.id] ?? detail.id;
+        if (nextId === detail.id) return null;
+        return {
+          employeeId: member.id,
+          departmentId: nextId || null,
+        };
+      })
+      .filter((item): item is { employeeId: string; departmentId: string } =>
+        !!item && !!item.departmentId,
+      );
+
+    if (!moves.length) {
+      toast.message("Nenhuma transferência para salvar.");
+      return;
+    }
+
+    setSavingMembers(true);
+    try {
+      const updated = await apiFetch<DepartmentDetail>(
+        `/api/departments/${detail.id}`,
+        {
+          method: "PATCH",
+          body: jsonBody({ moveMembers: moves }),
+        },
+      );
+      toast.success(
+        moves.length === 1
+          ? "1 pessoa transferida."
+          : `${moves.length} pessoas transferidas.`,
+      );
+      setDetail(updated);
+      const targets: Record<string, string> = {};
+      for (const member of updated.employees) {
+        targets[member.id] = updated.id;
+      }
+      setMemberTargets(targets);
+      await loadItems();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao transferir pessoas.",
+      );
+    } finally {
+      setSavingMembers(false);
+    }
+  }
+
+  const pendingMoves = detail
+    ? detail.employees.filter(
+        (member) => (memberTargets[member.id] ?? detail.id) !== detail.id,
+      ).length
+    : 0;
+
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -125,7 +297,8 @@ export default function DepartmentsPage() {
             Departamentos
           </h1>
           <p className="mt-2 text-sm text-adc-muted">
-            Cadastre departamentos para vincular nas contas e nos funcionários.
+            Cadastre departamentos, mova pessoas entre setores e controle o
+            acesso ao desativar.
           </p>
         </div>
 
@@ -181,9 +354,15 @@ export default function DepartmentsPage() {
                 </tr>
               ) : items.length ? (
                 items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-4 py-3 font-medium text-adc-navy">
-                      {item.name}
+                  <tr key={item.id} className="hover:bg-background/40">
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => void openDetail(item)}
+                        className="text-left font-medium text-adc-navy hover:text-adc-blue hover:underline"
+                      >
+                        {item.name}
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-adc-muted">
                       {item._count
@@ -197,8 +376,17 @@ export default function DepartmentsPage() {
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => void toggleActive(item)}
-                          className="rounded-xl border border-adc-border px-3 py-1.5 text-sm font-semibold text-adc-navy"
+                          onClick={() => void openDetail(item)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-adc-border px-3 py-1.5 text-sm font-semibold text-adc-navy"
+                        >
+                          <Users size={14} />
+                          Pessoas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => requestToggleActive(item)}
+                          disabled={toggling}
+                          className="rounded-xl border border-adc-border px-3 py-1.5 text-sm font-semibold text-adc-navy disabled:opacity-60"
                         >
                           {item.active ? "Desativar" : "Ativar"}
                         </button>
@@ -235,17 +423,16 @@ export default function DepartmentsPage() {
         onClose={() => setModalOpen(false)}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="text-sm font-medium text-adc-navy">Nome</span>
+          <Field label="Nome" required>
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="input mt-1"
+              className="input"
               required
               minLength={2}
               placeholder="Ex.: TI, Financeiro, Operações"
             />
-          </label>
+          </Field>
 
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <button
@@ -265,6 +452,119 @@ export default function DepartmentsPage() {
           </div>
         </form>
       </Modal>
+
+      <Modal
+        open={!!detail || detailLoading}
+        title={
+          detail
+            ? `Departamento · ${detail.name}`
+            : "Carregando departamento..."
+        }
+        onClose={closeDetail}
+      >
+        {detailLoading || !detail ? (
+          <p className="text-sm text-adc-muted">Carregando pessoas...</p>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-adc-muted">
+              {detail.active ? "Ativo" : "Inativo"} ·{" "}
+              {detail.employees.length}{" "}
+              {detail.employees.length === 1 ? "pessoa" : "pessoas"} neste
+              setor. Transfira para outro departamento ativo e salve.
+            </p>
+
+            {detail.employees.length ? (
+              <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+                {detail.employees.map((member) => (
+                  <div
+                    key={member.id}
+                    className="rounded-xl border border-adc-border bg-background/60 px-3 py-3"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="font-medium text-adc-navy">
+                          {member.name}
+                        </p>
+                        <p className="truncate text-xs text-adc-muted">
+                          {member.email}
+                          {member.active ? "" : " · inativo"}
+                        </p>
+                      </div>
+                      <label className="block w-full sm:w-56">
+                        <span className="text-xs font-medium text-adc-navy">
+                          Mover para
+                        </span>
+                        <select
+                          value={memberTargets[member.id] ?? detail.id}
+                          onChange={(event) =>
+                            setMemberTargets((current) => ({
+                              ...current,
+                              [member.id]: event.target.value,
+                            }))
+                          }
+                          className="input mt-1"
+                          disabled={savingMembers || !detail.active}
+                        >
+                          <option value={detail.id}>
+                            Permanecer em {detail.name}
+                          </option>
+                          {otherDepartments.map((dept) => (
+                            <option key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-adc-muted">
+                Nenhuma pessoa vinculada a este departamento.
+              </p>
+            )}
+
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDetail}
+                disabled={savingMembers}
+                className="rounded-xl border border-adc-border px-4 py-2 text-sm font-semibold text-adc-navy disabled:opacity-60"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveMemberMoves()}
+                disabled={
+                  savingMembers || !pendingMoves || !detail.active
+                }
+                className="btn-primary disabled:opacity-60"
+              >
+                {savingMembers
+                  ? "Salvando..."
+                  : pendingMoves
+                    ? `Salvar ${pendingMoves} transferência${pendingMoves > 1 ? "s" : ""}`
+                    : "Salvar transferências"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmPhraseModal
+        open={!!deactivateTarget}
+        title="Desativar departamento"
+        phrase="desativar"
+        confirmLabel="Desativar departamento"
+        confirming={toggling}
+        description={`Desativar "${deactivateTarget?.name}" também desativa todos os usuários e funcionários deste setor. Eles não poderão entrar na plataforma até o departamento ser reativado.`}
+        onCancel={() => {
+          if (!toggling) setDeactivateTarget(null);
+        }}
+        onConfirm={() => void confirmDeactivate()}
+      />
 
       <ConfirmDeleteModal
         open={!!deleteTarget}
