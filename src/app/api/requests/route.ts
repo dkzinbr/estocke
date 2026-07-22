@@ -39,6 +39,9 @@ const requestInclude = {
       assignments: {
         select: { quantity: true },
       },
+      parentLinks: {
+        select: { quantity: true },
+      },
       malfunctions: {
         where: { active: true },
         select: { id: true },
@@ -58,6 +61,7 @@ function serializeRequest<
     product: {
       quantity: number;
       assignments?: { quantity: number }[];
+      parentLinks?: { quantity: number }[];
       malfunctions?: { id: string }[];
       requests?: { id: string }[];
     };
@@ -141,6 +145,7 @@ export async function POST(request: Request) {
         where: { id: data.productId },
         include: {
           assignments: { select: { quantity: true } },
+          parentLinks: { select: { quantity: true } },
           malfunctions: {
             where: { active: true },
             select: { id: true },

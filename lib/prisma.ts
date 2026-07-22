@@ -6,7 +6,7 @@ import "dotenv/config";
  * Bump this whenever the Prisma schema changes so Next/Turbopack
  * discards a stale global PrismaClient that still expects old columns.
  */
-const PRISMA_SCHEMA_VERSION = "2026-07-22-must-change-password";
+const PRISMA_SCHEMA_VERSION = "2026-07-22-suspended-by-department";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

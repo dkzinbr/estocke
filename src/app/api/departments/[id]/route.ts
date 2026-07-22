@@ -149,14 +149,27 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
       }
 
       if (data.active !== undefined && data.active !== existing.active) {
-        await tx.employee.updateMany({
-          where: { departmentId: id },
-          data: { active: data.active },
-        });
-        await tx.user.updateMany({
-          where: { departmentId: id },
-          data: { active: data.active },
-        });
+        if (data.active === false) {
+          // Only currently-active members; mark so reactivation can restore them
+          // without re-enabling people who were already individually inactive.
+          await tx.employee.updateMany({
+            where: { departmentId: id, active: true },
+            data: { active: false, suspendedByDepartment: true },
+          });
+          await tx.user.updateMany({
+            where: { departmentId: id, active: true },
+            data: { active: false, suspendedByDepartment: true },
+          });
+        } else {
+          await tx.employee.updateMany({
+            where: { departmentId: id, suspendedByDepartment: true },
+            data: { active: true, suspendedByDepartment: false },
+          });
+          await tx.user.updateMany({
+            where: { departmentId: id, suspendedByDepartment: true },
+            data: { active: true, suspendedByDepartment: false },
+          });
+        }
       }
 
       return tx.department.update({

@@ -28,7 +28,6 @@ export async function POST(request: Request) {
       where: { email: user.email },
       update: {
         name: user.name,
-        active: true,
         departmentId: user.departmentId,
         userId: user.id,
       },

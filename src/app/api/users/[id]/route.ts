@@ -52,7 +52,9 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
         where: { id },
         data: {
           ...(data.role !== undefined ? { role: data.role } : {}),
-          ...(data.active !== undefined ? { active: data.active } : {}),
+          ...(data.active !== undefined
+            ? { active: data.active, suspendedByDepartment: false }
+            : {}),
         },
         select: {
           id: true,
@@ -71,7 +73,7 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
           where: {
             OR: [{ userId: updated.id }, { email: existing.email }],
           },
-          data: { active: data.active },
+          data: { active: data.active, suspendedByDepartment: false },
         });
       }
 

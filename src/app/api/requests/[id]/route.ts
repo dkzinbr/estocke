@@ -31,6 +31,9 @@ const requestInclude = {
       assignments: {
         select: { quantity: true },
       },
+      parentLinks: {
+        select: { quantity: true },
+      },
       malfunctions: {
         where: { active: true },
         select: { id: true },
@@ -60,7 +63,10 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
       include: {
         employee: { select: { id: true, name: true } },
         product: {
-          include: { assignments: { select: { quantity: true, employeeId: true } } },
+          include: {
+            assignments: { select: { quantity: true, employeeId: true } },
+            parentLinks: { select: { quantity: true } },
+          },
         },
       },
     });

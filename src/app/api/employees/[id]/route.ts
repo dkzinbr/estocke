@@ -127,6 +127,9 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
         where: { id },
         data: {
           ...data,
+          ...(data.active !== undefined
+            ? { suspendedByDepartment: false }
+            : {}),
           ...(departmentId !== undefined
             ? { departmentId: departmentId || null }
             : {}),
@@ -140,13 +143,17 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
           name?: string;
           departmentId?: string | null;
           active?: boolean;
+          suspendedByDepartment?: boolean;
         } = {};
 
         if (data.name !== undefined) userUpdate.name = data.name;
         if (departmentId !== undefined) {
           userUpdate.departmentId = departmentId || null;
         }
-        if (data.active !== undefined) userUpdate.active = data.active;
+        if (data.active !== undefined) {
+          userUpdate.active = data.active;
+          userUpdate.suspendedByDepartment = false;
+        }
 
         if (Object.keys(userUpdate).length > 0) {
           await tx.user.update({
@@ -203,16 +210,31 @@ export async function DELETE(request: Request, ctx: IdRouteContext) {
     const { id } = await ctx.params;
     const employee = await prisma.employee.findUnique({
       where: { id },
-      select: { id: true, name: true, photoUrl: true },
+      select: { id: true, name: true, photoUrl: true, userId: true, email: true },
     });
     if (!employee) return error("Funcionário não encontrado.", 404);
 
-    await prisma.employee.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.employee.delete({ where: { id } });
+
+      if (employee.userId) {
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: { active: false },
+        });
+      } else {
+        await tx.user.updateMany({
+          where: { email: employee.email, active: true },
+          data: { active: false },
+        });
+      }
+    });
+
     await deleteEmployeePhoto(employee.photoUrl);
 
     await logActivity(prisma, {
       type: "EMPLOYEE_DELETED",
-      summary: `Funcionário excluído: ${employee.name}`,
+      summary: `Funcionário excluído (acesso de login bloqueado): ${employee.name}`,
       actor: actorFromUser(user),
       entityType: "employee",
       entityId: employee.id,
