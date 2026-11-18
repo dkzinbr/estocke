@@ -3,9 +3,13 @@
 import { PasswordInput } from "@/components/password-input";
 import { apiFetch, jsonBody } from "@/lib/client/api";
 import { getSession, setSession } from "@/lib/client/session";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+
+function subscribeNoop() {
+  return () => {};
+}
 
 type Props = {
   open: boolean;
@@ -13,15 +17,12 @@ type Props = {
 };
 
 export function ForceChangePasswordModal({ open, onCompleted }: Props) {
-  const [mounted, setMounted] = useState(false);
+  // true só no cliente (o portal precisa do document.body).
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) return;

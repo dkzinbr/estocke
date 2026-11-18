@@ -3,7 +3,7 @@
 import { Field } from "@/components/field";
 import { Modal } from "@/components/modal";
 import { AlertTriangle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type ConfirmPhraseModalProps = {
   open: boolean;
@@ -29,9 +29,8 @@ export function ConfirmPhraseModal({
   const [typed, setTyped] = useState("");
   const matches = typed.trim().toLowerCase() === phrase.trim().toLowerCase();
 
-  useEffect(() => {
-    if (!open) setTyped("");
-  }, [open]);
+  // Limpa o texto digitado sempre que o modal fecha.
+  if (!open && typed) setTyped("");
 
   return (
     <Modal open={open} title={title} onClose={onCancel}>

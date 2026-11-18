@@ -59,15 +59,10 @@ export default function RequestsPage() {
   const [employeeId, setEmployeeId] = useState("");
   const [productId, setProductId] = useState("");
   const [note, setNote] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [canPickEmployee, setCanPickEmployee] = useState(false);
+  // O layout só monta as páginas no cliente, depois de carregar a sessão.
+  const [isAdmin] = useState(() => isAdminRole(getSession()?.user.role));
+  const [canPickEmployee] = useState(() => canActForOthers(getSession()?.user.role));
   const [selfEmployeeId, setSelfEmployeeId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const role = getSession()?.user.role;
-    setIsAdmin(isAdminRole(role));
-    setCanPickEmployee(canActForOthers(role));
-  }, []);
 
   const loadRequests = useCallback(async () => {
     setLoading(true);

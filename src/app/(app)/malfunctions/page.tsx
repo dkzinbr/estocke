@@ -53,14 +53,9 @@ export default function MalfunctionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Malfunction | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [canReportAny, setCanReportAny] = useState(false);
-
-  useEffect(() => {
-    const role = getSession()?.user.role;
-    setIsAdmin(isAdminRole(role));
-    setCanReportAny(canActForOthers(role));
-  }, []);
+  // O layout só monta as páginas no cliente, depois de carregar a sessão.
+  const [isAdmin] = useState(() => isAdminRole(getSession()?.user.role));
+  const [canReportAny] = useState(() => canActForOthers(getSession()?.user.role));
 
   const loadItems = useCallback(async () => {
     setLoading(true);

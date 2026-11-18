@@ -83,11 +83,8 @@ export default function ProductsPage() {
   const [linking, setLinking] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    setIsAdmin(isAdminRole(getSession()?.user.role));
-  }, []);
+  // O layout só monta as páginas no cliente, depois de carregar a sessão.
+  const [isAdmin] = useState(() => isAdminRole(getSession()?.user.role));
 
   const loadProducts = useCallback(async (nextSearch = search) => {
     setLoading(true);

@@ -30,7 +30,7 @@ function photosRoot() {
   return path.join(process.cwd(), "public", EMPLOYEE_PHOTOS_DIR);
 }
 
-function useDataUrlStorage() {
+function shouldStorePhotoInline() {
   // Na Vercel o filesystem é efêmero — guarda a foto no banco via data URL.
   return process.env.VERCEL === "1" || process.env.EMPLOYEE_PHOTOS_INLINE === "1";
 }
@@ -50,7 +50,7 @@ export async function saveEmployeePhoto(file: File) {
 
   const bytes = Buffer.from(await file.arrayBuffer());
 
-  if (useDataUrlStorage()) {
+  if (shouldStorePhotoInline()) {
     return `data:${file.type};base64,${bytes.toString("base64")}`;
   }
 

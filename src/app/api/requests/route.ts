@@ -13,7 +13,6 @@ import {
 } from "@/lib/product-request-rules";
 import { getStockStatus } from "@/lib/product-status";
 import { prisma } from "@/lib/prisma";
-import { Role } from "@generated/prisma/client";
 import { z } from "zod";
 
 const createSchema = z.object({

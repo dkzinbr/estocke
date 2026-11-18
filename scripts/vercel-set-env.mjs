@@ -60,7 +60,7 @@ function vercel(args, input) {
       env: process.env,
       shell: process.platform === "win32",
     });
-  } catch (err) {
+  } catch {
     // Fallback: run via cmd string (Windows PATH quirks)
     const quoted = full
       .map((part) => (/\s/.test(part) ? `"${part}"` : part))

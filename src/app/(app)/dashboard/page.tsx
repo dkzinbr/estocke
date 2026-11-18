@@ -59,7 +59,8 @@ type DashboardData = {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState("");
+  // O layout só monta as páginas no cliente, depois de carregar a sessão.
+  const [userName] = useState(() => getSession()?.user.name ?? "");
   const greeting = greetingForHour(new Date().getHours());
 
   const loadDashboard = useCallback(async () => {
@@ -78,7 +79,6 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    setUserName(getSession()?.user.name ?? "");
     const timeout = window.setTimeout(() => void loadDashboard(), 0);
     return () => window.clearTimeout(timeout);
   }, [loadDashboard]);

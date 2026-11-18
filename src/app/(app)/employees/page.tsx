@@ -118,13 +118,10 @@ export default function EmployeesPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  // O layout só monta as páginas no cliente, depois de carregar a sessão.
+  const [isAdmin] = useState(() => isAdminRole(getSession()?.user.role));
   const [productSearch, setProductSearch] = useState("");
   const [quickOrderingId, setQuickOrderingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setIsAdmin(isAdminRole(getSession()?.user.role));
-  }, []);
 
   const loadEmployees = useCallback(
     async (nextSearch = search, nextActive = active) => {

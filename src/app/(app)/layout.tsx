@@ -82,6 +82,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [menuPathname, setMenuPathname] = useState(pathname);
 
   const admin = isAdminRole(session?.user.role);
   const canSeeOps = canViewAllOperations(session?.user.role);
@@ -98,10 +99,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       ? ROLE_LABELS[session.user.role]
       : session?.user.email;
 
-  useEffect(() => {
+  // Fecha os menus ao trocar de página (ajuste durante a renderização, sem efeito).
+  if (pathname !== menuPathname) {
+    setMenuPathname(pathname);
     setMenuOpen(false);
     setAccountOpen(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     if (!menuOpen && !accountOpen) return;
