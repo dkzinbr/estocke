@@ -1,10 +1,10 @@
 # Estocke
 
-Sistema de gestão de estoque e patrimônio interno — produtos, funcionários, departamentos, pedidos, mal funcionamentos e histórico de auditoria.
+Sistema de gestão de estoque e patrimônio interno: produtos, funcionários, departamentos, pedidos, maus funcionamentos e histórico de auditoria.
 
 **Demo:** [estocke-adc.vercel.app](https://estocke-adc.vercel.app) · projeto de demonstração, sem dados reais.
 
-O Estocke é a evolução de dois protótipos anteriores: o **OperaPlan** (comunicação e chamados entre equipes) e o **inventory** (Next.js + Strapi). Aqui as ideias viraram uma plataforma única de pedidos, chamados de mal funcionamento e controle de estoque, com perfis de acesso e trilha de auditoria.
+O Estocke é a evolução de dois protótipos anteriores: o **OperaPlan** (comunicação e chamados entre equipes) e o **inventory** (Next.js + Strapi). Aqui as ideias viraram uma plataforma única de pedidos, chamados de mau funcionamento e controle de estoque, com perfis de acesso e trilha de auditoria.
 
 ---
 
@@ -34,7 +34,7 @@ O Estocke é a evolução de dois protótipos anteriores: o **OperaPlan** (comun
 | **Funcionários** | Cadastro com departamento e foto opcional |
 | **Departamentos** | Organização da equipe e dos usuários |
 | **Pedidos** | Solicitação e atendimento de itens |
-| **Mal funcionamento** | Registro, resolução e impacto no estoque |
+| **Mau funcionamento** | Registro, resolução e impacto no estoque |
 | **Histórico** | Auditoria (admin / supervisão) |
 | **Usuários** | Contas com papéis ADMIN / SUPERVISOR / EMPLOYEE |
 
@@ -164,7 +164,7 @@ Arquivos `.env*` **não** entram no Git (exceto `.env.example`).
 |---|---|
 | **ADMIN** | Tudo (catálogo, departamentos, usuários, atendimento) |
 | **SUPERVISOR** | Visão ampla + histórico; ações operacionais no próprio contexto |
-| **EMPLOYEE** | Pedidos/mal funcionamentos no próprio contexto |
+| **EMPLOYEE** | Pedidos/maus funcionamentos no próprio contexto |
 
 Login: `/login` → JWT no cliente, validade **3h**.
 
@@ -261,7 +261,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 | Funcionários | `/api/employees` |
 | Departamentos | `/api/departments` |
 | Pedidos | `/api/requests` |
-| Mal funcionamentos | `/api/malfunctions` |
+| Maus funcionamentos | `/api/malfunctions` |
 | Histórico | `/api/history` |
 | Dashboard | `/api/dashboard` |
 | Estoque | `/api/stockMovements` |

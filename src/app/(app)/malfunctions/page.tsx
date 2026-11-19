@@ -71,7 +71,7 @@ export default function MalfunctionsPage() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Erro ao listar mal funcionamentos.",
+          : "Erro ao listar maus funcionamentos.",
       );
     } finally {
       setLoading(false);
@@ -128,7 +128,7 @@ export default function MalfunctionsPage() {
         body: jsonBody({ productId, description }),
       });
       toast.success(
-        "Mal funcionamento registrado. Produto removido da listagem dos funcionários.",
+        "Mau funcionamento registrado. Produto removido da listagem dos funcionários.",
       );
       setModalOpen(false);
       await Promise.all([loadItems(), loadProducts()]);
@@ -185,7 +185,7 @@ export default function MalfunctionsPage() {
         <div>
           <p className="adc-eyebrow">Qualidade</p>
           <h1 className="text-2xl font-semibold text-adc-navy sm:text-3xl">
-            Mal funcionamento
+            Mau funcionamento
           </h1>
           <p className="mt-2 text-sm text-adc-muted">
             {canReportAny
@@ -327,7 +327,7 @@ export default function MalfunctionsPage() {
             ))
           ) : (
             <p className="px-4 py-10 text-center text-sm text-adc-muted">
-              Nenhum mal funcionamento encontrado.
+              Nenhum mau funcionamento encontrado.
             </p>
           )}
         </div>
@@ -335,7 +335,7 @@ export default function MalfunctionsPage() {
 
       <Modal
         open={modalOpen}
-        title="Registrar mal funcionamento"
+        title="Registrar mau funcionamento"
         onClose={() => setModalOpen(false)}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -387,7 +387,7 @@ export default function MalfunctionsPage() {
 
       <ConfirmDeleteModal
         open={!!deleteTarget}
-        description={`Excluir o registro de mal funcionamento de "${deleteTarget?.product.name}"?`}
+        description={`Excluir o registro de mau funcionamento de "${deleteTarget?.product.name}"?`}
         confirming={deleting}
         onCancel={() => {
           if (!deleting) setDeleteTarget(null);

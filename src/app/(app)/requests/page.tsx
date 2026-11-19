@@ -161,7 +161,7 @@ export default function RequestsPage() {
       })
     ) {
       toast.error(
-        "Item único em mal funcionamento. Não é possível pedir.",
+        "Item único em mau funcionamento. Não é possível pedir.",
       );
       return;
     }
@@ -430,7 +430,7 @@ export default function RequestsPage() {
                     disabled={!allowed}
                   >
                     {product.name} ({product.code})
-                    {!allowed ? " · bloqueado (único + mal funcionamento)" : ""}
+                    {!allowed ? " · bloqueado (único + mau funcionamento)" : ""}
                   </option>
                 );
               })}
@@ -439,7 +439,7 @@ export default function RequestsPage() {
 
           {selectedProduct && !selectedCanRequest ? (
             <p className="rounded-xl bg-amber-400/15 px-3 py-2 text-sm text-amber-800">
-              Este produto é item único e está em mal funcionamento. Não é
+              Este produto é item único e está em mau funcionamento. Não é
               possível criar pedido.
             </p>
           ) : null}

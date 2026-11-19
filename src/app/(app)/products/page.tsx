@@ -286,8 +286,8 @@ export default function ProductsPage() {
           </h1>
           <p className="mt-2 text-sm text-adc-muted">
             {isAdmin
-              ? "Cadastre itens. Status: Em estoque, Sem estoque, Pedido aberto ou Mal funcionamento."
-              : "Consulte itens. Status: Em estoque, Sem estoque, Pedido aberto ou Mal funcionamento."}
+              ? "Cadastre itens. Status: Em estoque, Sem estoque, Pedido aberto ou Mau funcionamento."
+              : "Consulte itens. Status: Em estoque, Sem estoque, Pedido aberto ou Mau funcionamento."}
           </p>
         </div>
 
@@ -329,7 +329,7 @@ export default function ProductsPage() {
               <option value="in_stock">Em estoque</option>
               <option value="attention">Sem estoque</option>
               <option value="out_of_stock">Pedido aberto</option>
-              <option value="malfunction">Mal funcionamento</option>
+              <option value="malfunction">Mau funcionamento</option>
             </select>
             <button className="btn-primary w-full sm:w-auto">Buscar</button>
             <RefreshButton

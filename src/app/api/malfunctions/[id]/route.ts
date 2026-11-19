@@ -59,7 +59,7 @@ export async function PATCH(request: Request, ctx: IdRouteContext) {
     if (data.active === false && existing.active) {
       await logActivity(prisma, {
         type: "MALFUNCTION_RESOLVED",
-        summary: `Mal funcionamento resolvido: ${malfunction.product.name}`,
+        summary: `Mau funcionamento resolvido: ${malfunction.product.name}`,
         actor: actorFromUser(user),
         entityType: "malfunction",
         entityId: malfunction.id,
@@ -89,7 +89,7 @@ export async function DELETE(request: Request, ctx: IdRouteContext) {
 
     await logActivity(prisma, {
       type: "MALFUNCTION_DELETED",
-      summary: `Mal funcionamento excluído: ${existing.product.name}`,
+      summary: `Mau funcionamento excluído: ${existing.product.name}`,
       actor: actorFromUser(user),
       entityType: "malfunction",
       entityId: existing.id,

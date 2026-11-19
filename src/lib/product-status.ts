@@ -8,7 +8,7 @@ export const STOCK_STATUS_LABELS: Record<StockStatus, string> = {
   in_stock: "Em estoque",
   attention: "Estoque baixo",
   out_of_stock: "Pedido aberto",
-  malfunction: "Mal funcionamento",
+  malfunction: "Mau funcionamento",
 };
 
 export const STOCK_STATUS_TONES: Record<StockStatus, string> = {
@@ -20,7 +20,7 @@ export const STOCK_STATUS_TONES: Record<StockStatus, string> = {
 
 /**
  * Status do produto:
- * - Mal funcionamento: mal funcionamento aberto e estoque total ≤ 1
+ * - Mau funcionamento: mau funcionamento aberto e estoque total ≤ 1
  * - Pedido aberto: estoque zerado OU pedido aberto
  * - Estoque baixo: disponíveis ≤ mínimo configurado
  * - Em estoque: disponíveis acima do mínimo

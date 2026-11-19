@@ -62,7 +62,7 @@ export async function recordAcquisitionMovement(
   return movement;
 }
 
-/** Histórico de mal funcionamento. Não altera product.quantity. */
+/** Histórico de mau funcionamento. Não altera product.quantity. */
 export async function recordMalfunctionMovement(
   tx: Tx,
   params: {

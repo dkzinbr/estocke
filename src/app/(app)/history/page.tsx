@@ -68,7 +68,7 @@ export default function HistoryPage() {
           Histórico
         </h1>
         <p className="mt-2 text-sm text-adc-muted">
-          Tudo o que acontece na plataforma: pedidos, mal funcionamentos,
+          Tudo o que acontece na plataforma: pedidos, maus funcionamentos,
           cadastros, transferências e ajustes.
         </p>
       </section>

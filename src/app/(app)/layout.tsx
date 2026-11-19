@@ -35,7 +35,7 @@ const baseNavItems = [
   { href: "/requests", label: "Pedidos", short: "Pedidos", icon: ClipboardList },
   {
     href: "/malfunctions",
-    label: "Mal funcionamento",
+    label: "Mau funcionamento",
     short: "Problemas",
     icon: AlertTriangle,
   },

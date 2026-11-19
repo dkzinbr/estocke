@@ -135,7 +135,7 @@ export async function POST(request: Request) {
       });
       if (!owned) {
         throw new ApiError(
-          "Você só pode registrar mal funcionamento de produtos vinculados a você.",
+          "Você só pode registrar mau funcionamento de produtos vinculados a você.",
           403,
         );
       }
@@ -148,12 +148,12 @@ export async function POST(request: Request) {
 
     if (openIssue) {
       throw new ApiError(
-        "Este produto já possui um mal funcionamento aberto. Resolva-o antes de registrar outro.",
+        "Este produto já possui um mau funcionamento aberto. Resolva-o antes de registrar outro.",
         409,
       );
     }
 
-    const noteBase = `Mal funcionamento · ${product.name}`;
+    const noteBase = `Mau funcionamento · ${product.name}`;
     const noteDetail =
       data.description.length > 80
         ? `${data.description.slice(0, 77)}...`
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
 
       await logActivity(tx, {
         type: "MALFUNCTION_REPORTED",
-        summary: `Mal funcionamento: ${product.name}`,
+        summary: `Mau funcionamento: ${product.name}`,
         detail: data.description,
         actor,
         entityType: "malfunction",

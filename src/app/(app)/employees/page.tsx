@@ -308,7 +308,7 @@ export default function EmployeesPage() {
       })
     ) {
       toast.error(
-        "Item único em mal funcionamento. Não é possível pedir.",
+        "Item único em mau funcionamento. Não é possível pedir.",
       );
       return;
     }
@@ -914,7 +914,7 @@ export default function EmployeesPage() {
                           <p className="mt-0.5 text-xs text-adc-muted">
                             {product.code} · estoque {product.quantity}
                             {product.hasOpenMalfunction
-                              ? " · mal funcionamento"
+                              ? " · mau funcionamento"
                               : ""}
                           </p>
                         </div>
@@ -961,7 +961,7 @@ export default function EmployeesPage() {
                           {outOfStock ? (
                             uniqueBroken ? (
                               <strong className="text-amber-700">
-                                Item único em mal funcionamento
+                                Item único em mau funcionamento
                               </strong>
                             ) : (
                               <>

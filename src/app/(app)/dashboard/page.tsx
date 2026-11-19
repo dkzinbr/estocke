@@ -201,7 +201,7 @@ export default function DashboardPage() {
         <div className="adc-panel p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-semibold text-adc-navy">
-              Produtos com mal funcionamento
+              Produtos com mau funcionamento
             </h2>
             <Link
               href="/malfunctions"
@@ -237,7 +237,7 @@ export default function DashboardPage() {
               ))
             ) : (
               <p className="text-sm text-adc-muted">
-                Nenhum mal funcionamento aberto.
+                Nenhum mau funcionamento aberto.
               </p>
             )}
           </div>

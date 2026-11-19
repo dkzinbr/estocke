@@ -4,7 +4,7 @@ export function isUniqueProduct(product: { quantity: number }) {
 }
 
 /**
- * Pedido bloqueado se há mal funcionamento aberto e estoque ≤ 1.
+ * Pedido bloqueado se há mau funcionamento aberto e estoque ≤ 1.
  * Com estoque > 1, o pedido continua permitido.
  */
 export function canRequestProduct(product: {
@@ -17,8 +17,8 @@ export function canRequestProduct(product: {
 
 export function requestBlockMessage(productName?: string) {
   return productName
-    ? `"${productName}" é item único e está em mal funcionamento. Não é possível pedir.`
-    : "Item único em mal funcionamento. Não é possível pedir.";
+    ? `"${productName}" é item único e está em mau funcionamento. Não é possível pedir.`
+    : "Item único em mau funcionamento. Não é possível pedir.";
 }
 
 /** Include Prisma (só use em rotas/server). */
