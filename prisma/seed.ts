@@ -3,6 +3,14 @@ import { PrismaClient, Role } from "../generated/prisma/client.js";
 import bcrypt from "bcrypt";
 import "dotenv/config";
 
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} não configurado (veja .env.example).`);
+  }
+  return value;
+}
+
 async function upsertDepartment(
   prisma: PrismaClient,
   name: string,
@@ -80,7 +88,8 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@estocke.local";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "troque-esta-senha";
+  const adminPassword = requireEnv("SEED_ADMIN_PASSWORD");
+  const demoPassword = requireEnv("SEED_DEMO_PASSWORD");
   const adminName = process.env.SEED_ADMIN_NAME ?? "Admin Estocke";
 
   const general = await upsertDepartment(prisma, "Geral");
@@ -102,7 +111,7 @@ async function main() {
     await upsertUserWithEmployee(prisma, {
       email: "supervisor@estocke.local",
       name: "Carla Supervisão",
-      password: "troque-esta-senha",
+      password: demoPassword,
       role: Role.SUPERVISOR,
       departmentId: ti.id,
       phone: "11999990010",
@@ -111,7 +120,7 @@ async function main() {
   const { user: anaUser, employee: ana } = await upsertUserWithEmployee(prisma, {
     email: "ana.silva@estocke.local",
     name: "Ana Silva",
-    password: "troque-esta-senha",
+    password: demoPassword,
     role: Role.EMPLOYEE,
     departmentId: ti.id,
     phone: "11999990001",
@@ -122,7 +131,7 @@ async function main() {
     {
       email: "bruno.costa@estocke.local",
       name: "Bruno Costa",
-      password: "troque-esta-senha",
+      password: demoPassword,
       role: Role.EMPLOYEE,
       departmentId: rh.id,
       phone: "11999990002",
@@ -223,10 +232,10 @@ async function main() {
   });
 
   console.log("Seed OK — contas para QA:");
-  console.log(`  ADMIN       ${admin.email} / ${adminPassword}`);
-  console.log(`  SUPERVISOR  ${supervisor.email} / troque-esta-senha`);
-  console.log(`  EMPLOYEE    ${anaUser.email} / troque-esta-senha`);
-  console.log(`  EMPLOYEE    ${brunoUser.email} / troque-esta-senha`);
+  console.log(`  ADMIN       ${admin.email} (senha de SEED_ADMIN_PASSWORD)`);
+  console.log(`  SUPERVISOR  ${supervisor.email} (senha de SEED_DEMO_PASSWORD)`);
+  console.log(`  EMPLOYEE    ${anaUser.email} (senha de SEED_DEMO_PASSWORD)`);
+  console.log(`  EMPLOYEE    ${brunoUser.email} (senha de SEED_DEMO_PASSWORD)`);
   console.log(
     `Departamentos: Geral, TI, RH | Produtos: ${products.map((p) => p.code).join(", ")}`,
   );

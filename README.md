@@ -2,6 +2,10 @@
 
 Sistema de gestão de estoque e patrimônio interno — produtos, funcionários, departamentos, pedidos, mal funcionamentos e histórico de auditoria.
 
+**Demo:** [estocke-adc.vercel.app](https://estocke-adc.vercel.app) · projeto de demonstração, sem dados reais.
+
+O Estocke é a evolução de dois protótipos anteriores: o **OperaPlan** (comunicação e chamados entre equipes) e o **inventory** (Next.js + Strapi). Aqui as ideias viraram uma plataforma única de pedidos, chamados de mal funcionamento e controle de estoque, com perfis de acesso e trilha de auditoria.
+
 ---
 
 ## Sumário
@@ -112,10 +116,12 @@ Criadas pelo seed (`pnpm db:seed` / `pnpm db:setup`):
 
 | Papel | E-mail | Senha |
 |---|---|---|
-| ADMIN | `admin@estocke.local` | `troque-esta-senha` |
-| SUPERVISOR | `supervisor@estocke.local` | `troque-esta-senha` |
-| EMPLOYEE | `ana.silva@estocke.local` | `troque-esta-senha` |
-| EMPLOYEE | `bruno.costa@estocke.local` | `troque-esta-senha` |
+| ADMIN | `admin@estocke.local` | `SEED_ADMIN_PASSWORD` |
+| SUPERVISOR | `supervisor@estocke.local` | `SEED_DEMO_PASSWORD` |
+| EMPLOYEE | `ana.silva@estocke.local` | `SEED_DEMO_PASSWORD` |
+| EMPLOYEE | `bruno.costa@estocke.local` | `SEED_DEMO_PASSWORD` |
+
+As senhas não ficam no código: defina as duas variáveis no `.env` antes de rodar o seed.
 
 Departamentos seed: **Geral**, **TI**, **RH**. Também há produtos, atribuições e um notebook único para cenários de patrimônio.
 
@@ -130,8 +136,10 @@ Departamentos seed: **Geral**, **TI**, **RH**. Também há produtos, atribuiçõ
 | `DATABASE_URL` | sim | Connection string PostgreSQL |
 | `JWT_SECRET` | sim | Segredo criptográfico — gere com `pnpm env:secret` |
 | `APP_URL` | sim | URL pública (ex.: `http://localhost:3000`) |
+| `DEFAULT_USER_PASSWORD` | sim | Senha inicial dos funcionários criados pelo admin (troca obrigatória no 1º login) |
 | `SEED_ADMIN_EMAIL` | não | E-mail do admin no seed |
-| `SEED_ADMIN_PASSWORD` | não | Senha do admin no seed |
+| `SEED_ADMIN_PASSWORD` | seed | Senha do admin no seed |
+| `SEED_DEMO_PASSWORD` | seed | Senha das contas de demonstração do seed |
 | `SEED_ADMIN_NAME` | não | Nome do admin no seed |
 
 Arquivos `.env*` **não** entram no Git (exceto `.env.example`).
@@ -243,7 +251,7 @@ Header: `Authorization: Bearer <token>`
 ```bash
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"admin@estocke.local\",\"password\":\"troque-esta-senha\"}"
+  -d "{\"email\":\"admin@estocke.local\",\"password\":\"<sua-senha>\"}"
 ```
 
 | Área | Prefixo |

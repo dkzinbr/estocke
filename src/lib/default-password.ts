@@ -1,7 +1,9 @@
 /** Senha inicial aplicada pelo admin ao criar funcionário. */
-export const DEFAULT_USER_PASSWORD =
-  process.env.DEFAULT_USER_PASSWORD?.trim() || "troque-esta-senha";
-
+/** Lida em tempo de execução: sem valor padrão no código. */
 export function getDefaultUserPassword() {
-  return DEFAULT_USER_PASSWORD;
+  const value = process.env.DEFAULT_USER_PASSWORD?.trim();
+  if (!value) {
+    throw new Error("DEFAULT_USER_PASSWORD não configurado (veja .env.example).");
+  }
+  return value;
 }
